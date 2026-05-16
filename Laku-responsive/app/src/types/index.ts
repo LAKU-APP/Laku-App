@@ -4,6 +4,7 @@ export interface Product {
   price: number;
   stock: number;
   emoji: string;
+  image?: string; // URL atau base64 image
   createdAt: string;
 }
 
@@ -30,6 +31,15 @@ export type TabType = 'dashboard' | 'products' | 'pos' | 'records' | 'insights';
 export interface ToastState {
   visible: boolean;
   message: string;
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  read: boolean;
+  createdAt: string;
 }
 
 export interface ModalState {

@@ -161,53 +161,53 @@ export default function Products() {
     </div>
   );
 
-  // Mobile: card grid layout (original)
+  // Mobile: card grid layout
   const mobileView = (
     <>
       <div className="grid grid-cols-2 gap-3">
         {filteredProducts.map((product, i) => (
           <div
             key={product.id}
-            className={`bg-white rounded-xl p-3.5 flex flex-col items-center gap-1.5 card-shadow
+            className={`bg-white rounded-xl p-3.5 flex flex-col items-center gap-2 card-shadow
                        hover:card-shadow-hover active:scale-[0.97] transition-all
                        animate-fade-up relative overflow-hidden
-                       ${product.stock === 0 ? 'opacity-50 bg-[#F3F4F6]' : ''}`}
+                       ${product.stock === 0 ? 'opacity-60 bg-[#F8F9FC]' : ''}`}
             style={{ animationDelay: `${i * 0.03}s` }}
           >
             {product.stock === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center z-10">
-                <span className="text-xs font-extrabold text-[#ef4444] bg-white/80 px-2 py-1 rounded-md border border-[#ef4444]/20">
+              <div className="absolute inset-0 flex items-center justify-center z-10 bg-white/60 backdrop-blur-[1px]">
+                <span className="text-xs font-extrabold text-[#ef4444] bg-white px-3 py-1.5 rounded-lg border-2 border-[#ef4444]/30 shadow-sm">
                   Habis
                 </span>
               </div>
             )}
-            <div className="text-3xl">{product.emoji}</div>
-            <div className="text-xs font-bold text-[#1A1F3A] text-center leading-tight line-clamp-1">{product.name}</div>
+            <div className="text-3xl mb-1">{product.emoji}</div>
+            <div className="text-xs font-bold text-[#1A1F3A] text-center leading-tight line-clamp-1 w-full px-1">{product.name}</div>
             <div className="text-[11px] font-semibold text-[#9BA3BC]">Rp {product.price.toLocaleString('id-ID')}</div>
-            <div className={`text-[11px] font-bold ${product.stock <= 5 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
+            <div className={`text-xs font-extrabold px-2 py-0.5 rounded-md ${product.stock <= 5 ? 'bg-[#fee2e2] text-[#ef4444]' : 'bg-[#dcfce7] text-[#22c55e]'}`}>
               Stok: {product.stock}
             </div>
             <div className="flex gap-1.5 mt-1 w-full">
               <button
                 onClick={() => openAdjust(product)}
-                className="flex-1 h-7 rounded-lg bg-[#e8effe] flex items-center justify-center active:scale-95 transition-transform"
+                className="flex-1 h-8 rounded-lg bg-gradient-to-r from-[#e8effe] to-[#d4e4fb] flex items-center justify-center active:scale-95 transition-transform"
               >
-                <Plus size={14} className="text-[#1A56DB]" />
+                <Plus size={15} className="text-[#1A56DB]" strokeWidth={2.5} />
               </button>
               <button
                 onClick={() => openEdit(product)}
-                className="flex-1 h-7 rounded-lg bg-[#F8F9FC] flex items-center justify-center active:scale-95 transition-transform"
+                className="flex-1 h-8 rounded-lg bg-[#F8F9FC] flex items-center justify-center active:scale-95 transition-transform"
               >
-                <Edit2 size={12} className="text-[#9BA3BC]" />
+                <Edit2 size={13} className="text-[#9BA3BC]" strokeWidth={2} />
               </button>
             </div>
           </div>
         ))}
       </div>
       {filteredProducts.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <Package size={40} className="text-[#DDE1EF] mb-3" />
-          <p className="text-sm font-semibold text-[#9BA3BC]">Tidak ada produk</p>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <Package size={48} className="text-[#DDE1EF] mb-3" />
+          <p className="text-sm font-bold text-[#9BA3BC]">Tidak ada produk</p>
           <p className="text-xs text-[#DDE1EF] mt-1">Tambahkan produk baru</p>
         </div>
       )}

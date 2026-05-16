@@ -1,5 +1,4 @@
 import { useApp } from '@/context/AppContext';
-import StatusBar from '@/components/StatusBar';
 import TopNav from '@/components/TopNav';
 import BottomNav from '@/components/BottomNav';
 import SideNav from '@/components/SideNav';
@@ -16,7 +15,6 @@ function AppContent() {
   const { state } = useApp();
   const isMobile = useIsMobile();
 
-  // If not authenticated, show Login page full-screen
   if (!state.user) {
     return <Login />;
   }
@@ -32,13 +30,14 @@ function AppContent() {
     }
   };
 
-  // Mobile: full screen layout
   if (isMobile) {
     return (
-      <div className="w-full bg-[#F8F9FD] flex flex-col" style={{ minHeight: '100dvh' }}>
-        <StatusBar />
+      <div
+        className="w-full bg-[#F8F9FD] flex flex-col"
+        style={{ height: '100dvh', overflow: 'hidden' }}
+      >
         <TopNav />
-        <main className="flex-1 flex flex-col overflow-hidden relative min-h-0">
+        <main className="flex-1 flex flex-col overflow-hidden min-h-0">
           {renderPage()}
         </main>
         <BottomNav />
@@ -47,23 +46,15 @@ function AppContent() {
     );
   }
 
-  // Tablet & Desktop: sidebar layout
   return (
     <div className="min-h-screen w-full bg-[#E8EDF8] flex">
-      {/* Sidebar Navigation */}
       <SideNav />
-
-      {/* Main Area */}
       <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
-        {/* Top Bar for desktop */}
         <TopNav isDesktop />
-
-        {/* Content */}
         <main className="flex-1 flex flex-col overflow-hidden relative">
           {renderPage()}
         </main>
       </div>
-
       <Toast />
     </div>
   );

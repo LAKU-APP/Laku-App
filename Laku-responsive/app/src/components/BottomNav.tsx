@@ -1,7 +1,6 @@
 import { useApp } from '@/context/AppContext';
 import type { TabType } from '@/types';
 import { LayoutDashboard, Package, Calculator, Receipt, BarChart3 } from 'lucide-react';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 const tabs: { key: TabType; label: string; icon: React.ElementType }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -13,16 +12,20 @@ const tabs: { key: TabType; label: string; icon: React.ElementType }[] = [
 
 export default function BottomNav() {
   const { state, dispatch } = useApp();
-  const isMobile = useIsMobile();
-
-  // Only show on mobile
-  if (!isMobile) return null;
 
   return (
-    <nav className="shrink-0 bg-white border-t border-[#EEF0F6] z-50"
-         style={{ boxShadow: '0 -4px 20px rgba(26,79,214,0.07)' }}>
-      <div className="flex items-center justify-around px-1 pt-2"
-           style={{ paddingBottom: 'max(10px, env(safe-area-inset-bottom))' }}>
+    <nav
+      className="shrink-0 bg-white border-t border-[#EEF0F6] z-50 w-full"
+      style={{ boxShadow: '0 -4px 24px rgba(26,79,214,0.08)' }}
+    >
+      <div
+        className="flex items-stretch justify-around"
+        style={{
+          paddingTop: '10px',
+          paddingBottom: 'max(14px, env(safe-area-inset-bottom, 14px))',
+          minHeight: '64px',
+        }}
+      >
         {tabs.map(tab => {
           const isActive = state.activeTab === tab.key;
           const Icon = tab.icon;
@@ -30,19 +33,24 @@ export default function BottomNav() {
             <button
               key={tab.key}
               onClick={() => dispatch({ type: 'SET_TAB', payload: tab.key })}
-              className="relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors duration-150 flex-1
-                         active:scale-95"
+              className="relative flex flex-col items-center justify-center gap-1 flex-1 min-w-0 px-1 active:scale-95 transition-transform duration-150"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              <Icon
-                size={22}
-                className={`transition-colors duration-150 ${isActive ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'}`}
-                strokeWidth={isActive ? 2.5 : 2}
-              />
-              <span className={`text-[10px] font-bold transition-colors duration-150 leading-tight ${isActive ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'}`}>
+              <div className={`relative transition-all duration-200 ${isActive ? 'scale-110' : 'scale-100'}`}>
+                <Icon
+                  size={23}
+                  className={`transition-colors duration-200 ${isActive ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'}`}
+                  strokeWidth={isActive ? 2.5 : 2}
+                />
+                {isActive && (
+                  <div className="absolute inset-0 bg-[#1A56DB]/10 rounded-full blur-md" />
+                )}
+              </div>
+              <span className={`text-[10px] font-bold leading-tight transition-colors duration-200 ${isActive ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'}`}>
                 {tab.label}
               </span>
               {isActive && (
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-[#1A56DB] rounded-full" />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#1A56DB] rounded-full" />
               )}
             </button>
           );

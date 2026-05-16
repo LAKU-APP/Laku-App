@@ -199,17 +199,18 @@ export default function POS() {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 overflow-y-auto scrollbar-hide px-4 pt-4 pb-2">
-          <div className="relative mb-3">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9BA3BC]" />
+          <div className="relative mb-3.5">
+            <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9BA3BC]" />
             <input type="text" placeholder="Cari produk..." value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-9 pr-4 bg-white rounded-xl text-sm font-medium text-[#1A1F3A] placeholder:text-[#9BA3BC] outline-none focus:ring-2 focus:ring-[#1A56DB]/30 card-shadow transition-shadow" />
+              className="w-full h-12 pl-11 pr-4 bg-white rounded-xl text-sm font-semibold text-[#1A1F3A] placeholder:text-[#9BA3BC] outline-none focus:ring-2 focus:ring-[#1A56DB]/30 card-shadow transition-all" />
           </div>
           {productGrid}
           {filteredProducts.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <ShoppingCart size={32} className="text-[#DDE1EF] mb-2" />
-              <p className="text-xs font-semibold text-[#9BA3BC]">Tidak ada produk tersedia</p>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <ShoppingCart size={40} className="text-[#DDE1EF] mb-3" />
+              <p className="text-sm font-bold text-[#9BA3BC]">Tidak ada produk tersedia</p>
+              <p className="text-xs text-[#DDE1EF] mt-1">Coba kata kunci lain</p>
             </div>
           )}
         </div>

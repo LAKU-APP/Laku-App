@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Button } from '@/components/ui/button';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Mail, Lock, Zap, AlertCircle } from 'lucide-react';
+import { Mail, Lock, Zap, AlertCircle, User, Eye, EyeOff, ArrowRight } from 'lucide-react';
 
 function generateId() {
   return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
@@ -10,319 +8,238 @@ function generateId() {
 
 export default function Login() {
   const { dispatch, showToast, login } = useApp();
-  const isMobile = useIsMobile();
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [shakeField, setShakeField] = useState<string | null>(null);
+  const [showPass, setShowPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [animating, setAnimating] = useState(false);
 
-  const triggerShake = (field: string) => {
-    setShakeField(field);
-    setTimeout(() => setShakeField(null), 500);
+  const switchMode = (newMode: 'login' | 'register') => {
+    if (newMode === mode) return;
+    setAnimating(true);
+    setError(null);
+    setTimeout(() => {
+      setMode(newMode);
+      setEmail(''); setPassword(''); setName(''); setConfirmPassword('');
+      setShowPass(false); setShowConfirmPass(false);
+      setAnimating(false);
+    }, 180);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
-    if (!email.trim()) {
-      setError('Email harus diisi');
-      triggerShake('email');
-      return;
+    if (mode === 'register') {
+      if (!name.trim()) { setError('Nama harus diisi'); return; }
+      if (!email.trim()) { setError('Email harus diisi'); return; }
+      if (!password.trim()) { setError('Password harus diisi'); return; }
+      if (password.length < 6) { setError('Password minimal 6 karakter'); return; }
+      if (password !== confirmPassword) { setError('Password tidak cocok'); return; }
+      setLoading(true);
+      setTimeout(() => {
+        const user = { id: generateId(), name: name.trim(), email };
+        login(user);
+        dispatch({ type: 'SET_TAB', payload: 'dashboard' });
+        showToast('Akun berhasil dibuat!');
+        setLoading(false);
+      }, 800);
+    } else {
+      if (!email.trim()) { setError('Email harus diisi'); return; }
+      if (!password.trim()) { setError('Password harus diisi'); return; }
+      setLoading(true);
+      setTimeout(() => {
+        const user = { id: generateId(), name: email.split('@')[0], email };
+        login(user);
+        dispatch({ type: 'SET_TAB', payload: 'dashboard' });
+        showToast('Login berhasil!');
+        setLoading(false);
+      }, 600);
     }
-    
-    if (!password.trim()) {
-      setError('Password harus diisi');
-      triggerShake('password');
-      return;
-    }
-    
-    setLoading(true);
-    setTimeout(() => {
-      const user = { id: generateId(), name: email.split('@')[0], email };
-      login(user);
-      dispatch({ type: 'SET_TAB', payload: 'dashboard' });
-      showToast('Login berhasil');
-      setLoading(false);
-    }, 600);
   };
 
+  const inputCls = (field: string) =>
+    `flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all duration-200 ${
+      focusedField === field
+        ? 'border-[#1A56DB] bg-[#e8effe]'
+        : 'border-[#EEF0F6] bg-[#F8F9FC] hover:border-[#d4e4fb]'
+    }`;
+
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-[#F8F9FD] via-[#F0F2FA] to-[#E8EDF8] flex flex-col overflow-hidden">
-      {/* Desktop background decoration */}
-      {!isMobile && (
-        <>
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#1A56DB]/5 rounded-full blur-3xl -z-10 animate-pulse" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#F97316]/5 rounded-full blur-3xl -z-10 animate-pulse" />
-        </>
-      )}
+    <div
+      className="w-full flex items-center justify-center p-4 overflow-y-auto"
+      style={{
+        minHeight: '100dvh',
+        background: 'linear-gradient(135deg, #0f1f5c 0%, #1A56DB 55%, #1340b8 100%)',
+      }}
+    >
+      {/* Decorative blobs */}
+      <div className="fixed top-[-100px] right-[-100px] w-[350px] h-[350px] rounded-full bg-white/5 pointer-events-none" />
+      <div className="fixed bottom-[-80px] left-[-80px] w-[280px] h-[280px] rounded-full bg-white/5 pointer-events-none" />
 
-      {/* Header section */}
-      <div className={`flex-shrink-0 ${isMobile ? 'px-4 pt-6 pb-4' : 'px-8 py-12'}`}>
-        <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-8 duration-700">
-          <div className="w-9 sm:w-10 h-9 sm:h-10 rounded-lg bg-gradient-to-br from-[#1A56DB] to-[#1340b8] flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow">
-            <Zap size={isMobile ? 18 : 20} className="text-white" />
+      <div className="w-full max-w-[420px] relative z-10">
+        {/* Logo */}
+        <div className="flex flex-col items-center gap-2 mb-8 animate-fade-up animate-delay-1">
+          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+            <Zap size={28} className="text-white" strokeWidth={2.5} />
           </div>
-          <h1 className="text-lg sm:text-xl font-bold text-[#1A1F3A]">Laku</h1>
+          <div className="text-center">
+            <div className="text-white font-extrabold text-2xl tracking-tight">LAKU</div>
+            <div className="text-white/60 text-xs font-medium">Sistem Manajemen Toko</div>
+          </div>
         </div>
-      </div>
 
-      {/* Main content */}
-      <div className={`flex-1 flex items-center justify-center ${isMobile ? 'px-3 pb-6' : 'px-8'}`}>
-        <div className={`w-full ${isMobile ? 'max-w-sm' : 'max-w-md'} bg-white rounded-2xl sm:rounded-3xl card-shadow overflow-hidden animate-in fade-in zoom-in duration-700 delay-100`}>
-          {/* Top accent bar */}
+        {/* Tab switcher */}
+        <div className="flex bg-white/10 backdrop-blur-sm rounded-2xl p-1.5 mb-5 animate-fade-up animate-delay-2">
+          <button
+            onClick={() => switchMode('login')}
+            className={`flex-1 h-10 rounded-xl text-sm font-bold transition-all duration-200 ${
+              mode === 'login' ? 'bg-white text-[#1A56DB] shadow-md' : 'text-white/70 hover:text-white'
+            }`}
+          >
+            Masuk
+          </button>
+          <button
+            onClick={() => switchMode('register')}
+            className={`flex-1 h-10 rounded-xl text-sm font-bold transition-all duration-200 ${
+              mode === 'register' ? 'bg-white text-[#1A56DB] shadow-md' : 'text-white/70 hover:text-white'
+            }`}
+          >
+            Daftar
+          </button>
+        </div>
+
+        {/* Form card */}
+        <div
+          className="bg-white rounded-3xl overflow-hidden shadow-2xl animate-fade-up animate-delay-3"
+          style={{
+            opacity: animating ? 0 : 1,
+            transform: animating ? 'translateY(10px) scale(0.98)' : 'translateY(0) scale(1)',
+            transition: 'opacity 0.18s ease, transform 0.18s ease',
+          }}
+        >
           <div className="h-1 bg-gradient-to-r from-[#1A56DB] to-[#F97316]" />
-
-          <div className={`${isMobile ? 'px-4 py-6 sm:py-8' : 'px-8 py-10'} flex flex-col gap-6`}>
-            {/* Title section */}
-            <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-4 duration-700 delay-200">
-              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-[#1A1F3A]">Selamat Datang Kembali</h2>
-              <p className="text-xs sm:text-sm text-[#9BA3BC]">Masuk ke akun Anda untuk mengelola toko</p>
+          <div className="p-6 sm:p-8">
+            <div className="mb-5">
+              <h2 className="text-xl font-extrabold text-[#1A1F3A]">
+                {mode === 'login' ? 'Selamat Datang 👋' : 'Buat Akun Baru'}
+              </h2>
+              <p className="text-sm text-[#9BA3BC] mt-1">
+                {mode === 'login' ? 'Masuk untuk mengelola toko Anda' : 'Daftar gratis, mulai kelola toko'}
+              </p>
             </div>
 
-            {/* Error message */}
             {error && (
-              <div className="animate-in fade-in slide-in-from-top-2 duration-300 p-3 rounded-lg bg-red-50 border border-red-200 flex gap-2">
-                <AlertCircle size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
-                <p className="text-xs sm:text-sm text-red-600 font-medium">{error}</p>
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 flex gap-2 items-start">
+                <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
+                <p className="text-xs text-red-600 font-medium">{error}</p>
               </div>
             )}
 
-            {/* Form */}
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              {/* Email field */}
-              <div className={`flex flex-col gap-2 animate-in fade-in duration-700 delay-300 ${shakeField === 'email' ? 'animate-shake' : ''}`}>
-                <label className="text-xs sm:text-sm font-semibold text-[#3D4566]">Email</label>
-                <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all duration-300 transform ${
-                  shakeField === 'email' 
-                    ? 'border-red-500 bg-red-50 scale-98' 
-                    : focusedField === 'email' 
-                    ? 'border-[#1A56DB] bg-[#e8effe] scale-102' 
-                    : 'border-[#EEF0F6] bg-[#F8F9FC] hover:border-[#d4e4fb] hover:scale-101'
-                }`} style={shakeField === 'email' ? { animation: 'shake 0.5s ease-in-out' } : {}}>
-                  <Mail size={18} className={`transition-all duration-300 flex-shrink-0 ${
-                    shakeField === 'email'
-                      ? 'text-red-500' 
-                      : focusedField === 'email' 
-                      ? 'text-[#1A56DB]' 
-                      : 'text-[#9BA3BC]'
-                  }`} />
+              {mode === 'register' && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-[#3D4566]">Nama Toko / Nama Anda</label>
+                  <div className={inputCls('name')}>
+                    <User size={17} className={focusedField === 'name' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
+                    <input
+                      type="text" value={name}
+                      onChange={e => { setName(e.target.value); setError(null); }}
+                      onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)}
+                      className="flex-1 bg-transparent text-sm font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none"
+                      placeholder="Warung Bu Sri"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#3D4566]">Email</label>
+                <div className={inputCls('email')}>
+                  <Mail size={17} className={focusedField === 'email' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
                   <input
-                    type="email"
-                    value={email}
-                    onChange={e => {
-                      setEmail(e.target.value);
-                      if (error) setError(null);
-                    }}
-                    onFocus={() => setFocusedField('email')}
-                    onBlur={() => setFocusedField(null)}
+                    type="email" value={email}
+                    onChange={e => { setEmail(e.target.value); setError(null); }}
+                    onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
                     className="flex-1 bg-transparent text-sm font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none"
                     placeholder="nama@domain.com"
                   />
                 </div>
               </div>
 
-              {/* Password field */}
-              <div className={`flex flex-col gap-2 animate-in fade-in duration-700 delay-300 ${shakeField === 'password' ? 'animate-shake' : ''}`} style={shakeField === 'password' ? { animation: 'shake 0.5s ease-in-out' } : {}}>
-                <label className="text-xs sm:text-sm font-semibold text-[#3D4566]">Password</label>
-                <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all duration-300 transform ${
-                  shakeField === 'password'
-                    ? 'border-red-500 bg-red-50 scale-98'
-                    : focusedField === 'password' 
-                    ? 'border-[#1A56DB] bg-[#e8effe] scale-102' 
-                    : 'border-[#EEF0F6] bg-[#F8F9FC] hover:border-[#d4e4fb] hover:scale-101'
-                }`}>
-                  <Lock size={18} className={`transition-all duration-300 flex-shrink-0 ${
-                    shakeField === 'password'
-                      ? 'text-red-500'
-                      : focusedField === 'password' 
-                      ? 'text-[#1A56DB]' 
-                      : 'text-[#9BA3BC]'
-                  }`} />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-[#3D4566]">Password</label>
+                <div className={inputCls('password')}>
+                  <Lock size={17} className={focusedField === 'password' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
                   <input
-                    type="password"
-                    value={password}
-                    onChange={e => {
-                      setPassword(e.target.value);
-                      if (error) setError(null);
-                    }}
-                    onFocus={() => setFocusedField('password')}
-                    onBlur={() => setFocusedField(null)}
+                    type={showPass ? 'text' : 'password'} value={password}
+                    onChange={e => { setPassword(e.target.value); setError(null); }}
+                    onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
                     className="flex-1 bg-transparent text-sm font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none"
-                    placeholder="Masukkan password Anda"
+                    placeholder={mode === 'register' ? 'Min. 6 karakter' : 'Masukkan password'}
                   />
+                  <button type="button" onClick={() => setShowPass(!showPass)} className="text-[#9BA3BC] hover:text-[#1A56DB] transition-colors shrink-0">
+                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
               </div>
 
-              {/* Submit button */}
-              <Button 
-                type="submit" 
-                disabled={loading}
-                className="w-full mt-2 h-11 text-sm font-bold bg-gradient-to-r from-[#1A56DB] to-[#1340b8] hover:from-[#1340b8] hover:to-[#0f2fa3] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:shadow-lg hover:scale-102 active:scale-98 animate-in fade-in duration-700 delay-400"
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Memproses...
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2">
-                    Masuk
-                  </span>
-                )}
-              </Button>
+              {mode === 'register' && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-[#3D4566]">Konfirmasi Password</label>
+                  <div className={inputCls('confirm')}>
+                    <Lock size={17} className={focusedField === 'confirm' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
+                    <input
+                      type={showConfirmPass ? 'text' : 'password'} value={confirmPassword}
+                      onChange={e => { setConfirmPassword(e.target.value); setError(null); }}
+                      onFocus={() => setFocusedField('confirm')} onBlur={() => setFocusedField(null)}
+                      className="flex-1 bg-transparent text-sm font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none"
+                      placeholder="Ulangi password"
+                    />
+                    <button type="button" onClick={() => setShowConfirmPass(!showConfirmPass)} className="text-[#9BA3BC] hover:text-[#1A56DB] transition-colors shrink-0">
+                      {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+              )}
 
-              {/* Demo info */}
-              <div className="mt-2 p-3 rounded-lg bg-[#e8effe] border border-[#d4e4fb] animate-in fade-in duration-700 delay-500 hover:border-[#1A56DB] transition-colors">
-                <p className="text-xs sm:text-sm text-[#1A56DB] font-medium">
-                  💡 Demo: gunakan email apapun dengan password apapun
-                </p>
-              </div>
+              <button
+                type="submit" disabled={loading}
+                className="w-full mt-1 h-12 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg, #1A56DB, #1340b8)', boxShadow: '0 4px 20px rgba(26,79,214,0.4)' }}
+              >
+                {loading
+                  ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  : <>{mode === 'login' ? 'Masuk' : 'Buat Akun'}<ArrowRight size={16} /></>
+                }
+              </button>
+
+              {mode === 'login' && (
+                <div className="p-3 rounded-xl bg-[#e8effe] border border-[#d4e4fb]">
+                  <p className="text-xs text-[#1A56DB] font-medium text-center">
+                    💡 Demo: gunakan email & password apapun
+                  </p>
+                </div>
+              )}
             </form>
+
+            <p className="text-center text-xs text-[#9BA3BC] mt-5">
+              {mode === 'login' ? 'Belum punya akun?' : 'Sudah punya akun?'}{' '}
+              <button onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
+                className="text-[#1A56DB] font-bold hover:underline">
+                {mode === 'login' ? 'Daftar sekarang' : 'Masuk'}
+              </button>
+            </p>
           </div>
         </div>
+
+        <p className="text-center text-white/30 text-xs mt-6">Laku © 2026 • Warung Digital Indonesia</p>
       </div>
-
-      {/* Footer - only on mobile */}
-      {isMobile && (
-        <div className="flex-shrink-0 px-6 py-4 text-center border-t border-[#EEF0F6]">
-          <p className="text-xs text-[#9BA3BC]">
-            Laku © 2026 • Sistem Manajemen Toko
-          </p>
-        </div>
-      )}
-
-      {/* CSS Animations */}
-      <style>{`
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-          20%, 40%, 60%, 80% { transform: translateX(5px); }
-        }
-        
-        @keyframes slide-in-from-top-8 {
-          from {
-            opacity: 0;
-            transform: translateY(-32px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        @keyframes slide-in-from-top-4 {
-          from {
-            opacity: 0;
-            transform: translateY(-16px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        @keyframes slide-in-from-top-2 {
-          from {
-            opacity: 0;
-            transform: translateY(-8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        @keyframes zoom-in {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        
-        .animate-in {
-          animation: fade-in 0.5s ease-out;
-        }
-        
-        .animate-shake {
-          animation: shake 0.5s ease-in-out;
-        }
-        
-        .slide-in-from-top-8 {
-          animation: slide-in-from-top-8 0.5s ease-out;
-        }
-        
-        .slide-in-from-top-4 {
-          animation: slide-in-from-top-4 0.5s ease-out;
-        }
-        
-        .slide-in-from-top-2 {
-          animation: slide-in-from-top-2 0.3s ease-out;
-        }
-        
-        .zoom-in {
-          animation: zoom-in 0.5s ease-out;
-        }
-        
-        .scale-98 {
-          transform: scale(0.98);
-        }
-        
-        .scale-101 {
-          transform: scale(1.01);
-        }
-        
-        .scale-102 {
-          transform: scale(1.02);
-        }
-        
-        .fade-in {
-          animation: fade-in 0.5s ease-out;
-        }
-        
-        .delay-100 {
-          animation-delay: 100ms;
-        }
-        
-        .delay-200 {
-          animation-delay: 200ms;
-        }
-        
-        .delay-300 {
-          animation-delay: 300ms;
-        }
-        
-        .delay-400 {
-          animation-delay: 400ms;
-        }
-        
-        .delay-500 {
-          animation-delay: 500ms;
-        }
-        
-        .duration-300 {
-          animation-duration: 300ms;
-        }
-        
-        .duration-700 {
-          animation-duration: 700ms;
-        }
-      `}</style>
     </div>
   );
 }

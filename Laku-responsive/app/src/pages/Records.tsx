@@ -110,34 +110,34 @@ export default function Records() {
       <div className="flex flex-col gap-3">
         {grouped.map(([date, transactions]) => (
           <div key={date}>
-            <div className="flex items-center gap-1.5 mb-2">
-              <Calendar size={12} className="text-[#9BA3BC]" />
-              <span className="text-[10px] font-bold text-[#9BA3BC] uppercase">{formatDate(date)}</span>
+            <div className="flex items-center gap-2 mb-2.5">
+              <Calendar size={14} className="text-[#9BA3BC]" />
+              <span className="text-xs font-bold text-[#9BA3BC] uppercase tracking-wide">{formatDate(date)}</span>
             </div>
-            <div className={isMobile ? 'flex flex-col gap-2' : 'grid grid-cols-2 lg:grid-cols-3 gap-2'}>
+            <div className={isMobile ? 'flex flex-col gap-2.5' : 'grid grid-cols-2 lg:grid-cols-3 gap-2.5'}>
               {transactions.map((t, i) => (
                 <div key={t.id}
-                  className="bg-white rounded-[10px] p-3 flex gap-3 items-start card-shadow hover:card-shadow-hover active:scale-[0.98] transition-all animate-fade-up"
+                  className="bg-white rounded-xl p-3.5 flex gap-3 items-start card-shadow hover:card-shadow-hover active:scale-[0.98] transition-all animate-fade-up"
                   style={{ animationDelay: `${i * 0.03}s` }}
                 >
-                  <div className={`rounded-full flex items-center justify-center shrink-0 ${isMobile ? 'w-9 h-9' : 'w-10 h-10'}
-                    ${t.type === 'OUT' ? 'bg-[#dcfce7]' : 'bg-[#fee2e2]'}`}>
+                  <div className={`rounded-xl flex items-center justify-center shrink-0 ${isMobile ? 'w-11 h-11' : 'w-12 h-12'}
+                    ${t.type === 'OUT' ? 'bg-gradient-to-br from-[#dcfce7] to-[#bbf7d0]' : 'bg-gradient-to-br from-[#fee2e2] to-[#fecaca]'}`}>
                     {t.type === 'OUT'
-                      ? <TrendingUp size={16} className="text-[#22c55e]" />
-                      : <TrendingDown size={16} className="text-[#ef4444]" />
+                      ? <TrendingUp size={18} className="text-[#22c55e]" strokeWidth={2.5} />
+                      : <TrendingDown size={18} className="text-[#ef4444]" strokeWidth={2.5} />
                     }
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start mb-1">
                       <div className="text-xs font-bold text-[#1A1F3A] truncate">{t.productName}</div>
                       <div className="text-[10px] font-bold text-[#9BA3BC] shrink-0 ml-2">{formatTime(t.createdAt)}</div>
                     </div>
-                    <div className="text-[11px] text-[#9BA3BC] font-medium mt-0.5 line-clamp-1">{t.note}</div>
-                    <div className="flex justify-between items-center mt-1">
-                      <span className={`text-xs font-extrabold ${t.type === 'OUT' ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                    <div className="text-[11px] text-[#9BA3BC] font-medium line-clamp-1 mb-1.5">{t.note}</div>
+                    <div className="flex justify-between items-center">
+                      <span className={`text-sm font-extrabold ${t.type === 'OUT' ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
                         {t.type === 'OUT' ? '+' : '-'}Rp {Math.abs(t.totalPrice).toLocaleString('id-ID')}
                       </span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md
                         ${t.type === 'OUT' ? 'bg-[#dcfce7] text-[#22c55e]' : 'bg-[#fee2e2] text-[#ef4444]'}`}>
                         {t.type === 'OUT' ? 'JUAL' : 'BELI'}
                       </span>
@@ -149,9 +149,9 @@ export default function Records() {
           </div>
         ))}
         {grouped.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Receipt size={40} className="text-[#DDE1EF] mb-3" />
-            <p className="text-sm font-semibold text-[#9BA3BC]">Belum ada transaksi</p>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Receipt size={48} className="text-[#DDE1EF] mb-3" />
+            <p className="text-sm font-bold text-[#9BA3BC]">Belum ada transaksi</p>
             <p className="text-xs text-[#DDE1EF] mt-1">Transaksi akan muncul di sini</p>
           </div>
         )}
