@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import ModalSheet from '@/components/ModalSheet';
-import { Wallet, ShoppingBag, Target, Edit3, Check, X, Receipt } from 'lucide-react';
+import { Wallet, ShoppingBag, Target, Check, X, Receipt } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function Dashboard() {
