@@ -1,27 +1,39 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
 import type { Product, Transaction, CartItem, TabType, ToastState, Notification } from '@/types';
+import { clearToken } from '@/lib/api';
+
+// Helper: generate ISO date string relative to today
+function daysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  d.setHours(10 + n, 0, 0, 0);
+  return d.toISOString();
+}
 
 const initialProducts: Product[] = [
-  { id: '1', name: 'Nasi Goreng', price: 15000, stock: 50, emoji: '🍛', createdAt: '2025-04-01T00:00:00Z' },
-  { id: '2', name: 'Es Teh', price: 5000, stock: 30, emoji: '🥤', createdAt: '2025-04-01T00:00:00Z' },
-  { id: '3', name: 'Beras 1kg', price: 12000, stock: 100, emoji: '🍚', createdAt: '2025-04-01T00:00:00Z' },
-  { id: '4', name: 'Cabai Merah', price: 8000, stock: 20, emoji: '🌶️', createdAt: '2025-04-01T00:00:00Z' },
-  { id: '5', name: 'Telur 1kg', price: 25000, stock: 40, emoji: '🥚', createdAt: '2025-04-01T00:00:00Z' },
-  { id: '6', name: 'Minyak Goreng', price: 15000, stock: 25, emoji: '🧴', createdAt: '2025-04-01T00:00:00Z' },
-  { id: '7', name: 'Mie Goreng', price: 10000, stock: 0, emoji: '🍜', createdAt: '2025-04-01T00:00:00Z' },
-  { id: '8', name: 'Kopi', price: 6000, stock: 60, emoji: '☕', createdAt: '2025-04-01T00:00:00Z' },
+  { id: '1', name: 'Nasi Goreng', price: 15000, stock: 50, emoji: '📦', createdAt: daysAgo(7) },
+  { id: '2', name: 'Es Teh', price: 5000, stock: 30, emoji: '📦', createdAt: daysAgo(7) },
+  { id: '3', name: 'Beras 1kg', price: 12000, stock: 100, emoji: '📦', createdAt: daysAgo(7) },
+  { id: '4', name: 'Cabai Merah', price: 8000, stock: 20, emoji: '📦', createdAt: daysAgo(7) },
+  { id: '5', name: 'Telur 1kg', price: 25000, stock: 40, emoji: '📦', createdAt: daysAgo(7) },
+  { id: '6', name: 'Minyak Goreng', price: 15000, stock: 25, emoji: '📦', createdAt: daysAgo(7) },
+  { id: '7', name: 'Mie Goreng', price: 10000, stock: 0, emoji: '📦', createdAt: daysAgo(7) },
+  { id: '8', name: 'Kopi', price: 6000, stock: 60, emoji: '📦', createdAt: daysAgo(7) },
 ];
 
 const initialTransactions: Transaction[] = [
-  { id: '1', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 3, totalPrice: 45000, note: 'Penjualan: 3x Nasi Goreng, 2x Es Teh', createdAt: '2026-05-06T10:15:00Z' },
-  { id: '2', productId: '2', productName: 'Es Teh', type: 'OUT', qty: 2, totalPrice: 10000, note: 'Penjualan: 3x Nasi Goreng, 2x Es Teh', createdAt: '2026-05-06T10:15:00Z' },
-  { id: '3', productId: '3', productName: 'Beras 1kg', type: 'IN', qty: 10, totalPrice: 120000, note: 'Pembelian: 10kg Beras', createdAt: '2026-05-06T11:30:00Z' },
-  { id: '4', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 2, totalPrice: 30000, note: 'Penjualan: 2x Nasi Goreng', createdAt: '2026-05-06T12:45:00Z' },
-  { id: '5', productId: '4', productName: 'Cabai Merah', type: 'OUT', qty: 5, totalPrice: 40000, note: 'Penjualan: 5x Cabai Merah', createdAt: '2026-05-06T14:20:00Z' },
-  { id: '6', productId: '5', productName: 'Telur 1kg', type: 'IN', qty: 5, totalPrice: 125000, note: 'Pembelian: 5kg Telur', createdAt: '2026-05-06T15:00:00Z' },
-  { id: '7', productId: '6', productName: 'Minyak Goreng', type: 'IN', qty: 4, totalPrice: 60000, note: 'Pembelian: 4 liter Minyak Goreng', createdAt: '2026-05-06T16:10:00Z' },
-  { id: '8', productId: '3', productName: 'Beras 1kg', type: 'OUT', qty: 8, totalPrice: 96000, note: 'Penjualan: 8kg Beras', createdAt: '2026-05-05T09:30:00Z' },
-  { id: '9', productId: '8', productName: 'Kopi', type: 'OUT', qty: 10, totalPrice: 60000, note: 'Penjualan: 10x Kopi', createdAt: '2026-05-05T11:00:00Z' },
+  { id: '1', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 3, totalPrice: 45000, note: 'Penjualan: 3x Nasi Goreng', createdAt: daysAgo(0) },
+  { id: '2', productId: '2', productName: 'Es Teh', type: 'OUT', qty: 2, totalPrice: 10000, note: 'Penjualan: 2x Es Teh', createdAt: daysAgo(0) },
+  { id: '3', productId: '3', productName: 'Beras 1kg', type: 'IN', qty: 10, totalPrice: 120000, note: 'Pembelian: 10kg Beras', createdAt: daysAgo(0) },
+  { id: '4', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 2, totalPrice: 30000, note: 'Penjualan: 2x Nasi Goreng', createdAt: daysAgo(0) },
+  { id: '5', productId: '4', productName: 'Cabai Merah', type: 'OUT', qty: 5, totalPrice: 40000, note: 'Penjualan: 5x Cabai Merah', createdAt: daysAgo(1) },
+  { id: '6', productId: '5', productName: 'Telur 1kg', type: 'IN', qty: 5, totalPrice: 125000, note: 'Pembelian: 5kg Telur', createdAt: daysAgo(1) },
+  { id: '7', productId: '6', productName: 'Minyak Goreng', type: 'IN', qty: 4, totalPrice: 60000, note: 'Pembelian: 4L Minyak Goreng', createdAt: daysAgo(2) },
+  { id: '8', productId: '3', productName: 'Beras 1kg', type: 'OUT', qty: 8, totalPrice: 96000, note: 'Penjualan: 8kg Beras', createdAt: daysAgo(2) },
+  { id: '9', productId: '8', productName: 'Kopi', type: 'OUT', qty: 10, totalPrice: 60000, note: 'Penjualan: 10x Kopi', createdAt: daysAgo(3) },
+  { id: '10', productId: '2', productName: 'Es Teh', type: 'OUT', qty: 5, totalPrice: 25000, note: 'Penjualan: 5x Es Teh', createdAt: daysAgo(4) },
+  { id: '11', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 4, totalPrice: 60000, note: 'Penjualan: 4x Nasi Goreng', createdAt: daysAgo(5) },
+  { id: '12', productId: '8', productName: 'Kopi', type: 'OUT', qty: 6, totalPrice: 36000, note: 'Penjualan: 6x Kopi', createdAt: daysAgo(6) },
 ];
 
 interface AppState {
@@ -178,6 +190,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     try { localStorage.removeItem('user'); } catch (e) {}
+    clearToken();
     dispatch({ type: 'LOGOUT' });
   }, []);
 

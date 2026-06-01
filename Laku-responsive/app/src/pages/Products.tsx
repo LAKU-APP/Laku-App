@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Search, Plus, Minus, Edit2, Trash2, Package } from 'lucide-react';
+import { Search, Plus, Minus, Edit2, Trash2, Package, Camera } from 'lucide-react';
 import ModalSheet from '@/components/ModalSheet';
 import type { Product } from '@/types';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -16,6 +16,7 @@ export default function Products() {
   const [formName, setFormName] = useState('');
   const [formPrice, setFormPrice] = useState('');
   const [formStock, setFormStock] = useState('');
+  const [formImage, setFormImage] = useState('');
   const [adjustQty, setAdjustQty] = useState('');
   const [adjustType, setAdjustType] = useState<'IN' | 'OUT'>('IN');
 
@@ -36,7 +37,8 @@ export default function Products() {
       name: formName.trim(),
       price: parseInt(formPrice),
       stock: parseInt(formStock),
-      emoji: getEmojiForProduct(formName),
+      emoji: '📦',
+      image: formImage || undefined,
       createdAt: new Date().toISOString(),
     };
     dispatch({ type: 'ADD_PRODUCT', payload: newProduct });
@@ -49,7 +51,7 @@ export default function Products() {
     if (!editingProduct || !formName.trim() || !formPrice || !formStock) return;
     dispatch({
       type: 'UPDATE_PRODUCT',
-      payload: { ...editingProduct, name: formName.trim(), price: parseInt(formPrice), stock: parseInt(formStock) },
+      payload: { ...editingProduct, name: formName.trim(), price: parseInt(formPrice), stock: parseInt(formStock), image: formImage || editingProduct.image },
     });
     showToast('Produk berhasil diperbarui');
     resetForm();
@@ -76,12 +78,13 @@ export default function Products() {
     setAdjustQty('');
   };
 
-  const resetForm = () => { setFormName(''); setFormPrice(''); setFormStock(''); };
+  const resetForm = () => { setFormName(''); setFormPrice(''); setFormStock(''); setFormImage(''); };
   const openEdit = (product: Product) => {
     setEditingProduct(product);
     setFormName(product.name);
     setFormPrice(product.price.toString());
     setFormStock(product.stock.toString());
+    setFormImage(product.image || '');
   };
   const openAdjust = (product: Product) => {
     setAdjustProduct(product);
@@ -111,7 +114,7 @@ export default function Products() {
             >
               <td className="px-6 py-3.5">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{product.emoji}</span>
+                  <ProductImage image={product.image} name={product.name} size="sm" />
                   <span className="text-sm font-bold text-[#1A1F3A]">{product.name}</span>
                 </div>
               </td>
@@ -171,7 +174,7 @@ export default function Products() {
             className={`bg-white rounded-xl p-3.5 flex flex-col items-center gap-2 card-shadow
                        hover:card-shadow-hover active:scale-[0.97] transition-all
                        animate-fade-up relative overflow-hidden
-                       ${product.stock === 0 ? 'opacity-60 bg-[#F8F9FC]' : ''}`}
+                       ${product.stock === 0 ? 'opacity-60' : ''}`}
             style={{ animationDelay: `${i * 0.03}s` }}
           >
             {product.stock === 0 && (
@@ -181,8 +184,8 @@ export default function Products() {
                 </span>
               </div>
             )}
-            <div className="text-3xl mb-1">{product.emoji}</div>
-            <div className="text-xs font-bold text-[#1A1F3A] text-center leading-tight line-clamp-1 w-full px-1">{product.name}</div>
+            <ProductImage image={product.image} name={product.name} size="lg" />
+            <div className="text-xs font-bold text-[#1A1F3A] text-center leading-tight line-clamp-2 w-full px-1">{product.name}</div>
             <div className="text-[11px] font-semibold text-[#9BA3BC]">Rp {product.price.toLocaleString('id-ID')}</div>
             <div className={`text-xs font-extrabold px-2 py-0.5 rounded-md ${product.stock <= 5 ? 'bg-[#fee2e2] text-[#ef4444]' : 'bg-[#dcfce7] text-[#22c55e]'}`}>
               Stok: {product.stock}
@@ -267,6 +270,7 @@ export default function Products() {
           name={formName} setName={setFormName}
           price={formPrice} setPrice={setFormPrice}
           stock={formStock} setStock={setFormStock}
+          image={formImage} setImage={setFormImage}
           onSubmit={handleAdd} submitLabel="Simpan"
         />
       </ModalSheet>
@@ -275,6 +279,7 @@ export default function Products() {
           name={formName} setName={setFormName}
           price={formPrice} setPrice={setFormPrice}
           stock={formStock} setStock={setFormStock}
+          image={formImage} setImage={setFormImage}
           onSubmit={handleUpdate} submitLabel="Update"
         />
         <button
@@ -326,11 +331,46 @@ export default function Products() {
   );
 }
 
-function ProductFormContent({ name, setName, price, setPrice, stock, setStock, onSubmit, submitLabel }:
+function ProductFormContent({ name, setName, price, setPrice, stock, setStock, image, setImage, onSubmit, submitLabel }:
   { name: string; setName: (v: string) => void; price: string; setPrice: (v: string) => void;
-    stock: string; setStock: (v: string) => void; onSubmit: () => void; submitLabel: string }) {
+    stock: string; setStock: (v: string) => void; image: string; setImage: (v: string) => void;
+    onSubmit: () => void; submitLabel: string }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { alert('Ukuran gambar maksimal 2MB'); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => setImage(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="flex flex-col gap-3">
+      {/* Image upload */}
+      <div className="flex flex-col items-center gap-2">
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="w-20 h-20 rounded-2xl bg-[#F4F6FD] border-2 border-dashed border-[#DDE1EF] flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform overflow-hidden"
+        >
+          {image ? (
+            <img src={image} alt="preview" className="w-full h-full object-cover" />
+          ) : (
+            <>
+              <Camera size={22} className="text-[#9BA3BC]" strokeWidth={1.5} />
+              <span className="text-[10px] font-bold text-[#9BA3BC]">Upload</span>
+            </>
+          )}
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        {image && (
+          <button type="button" onClick={() => setImage('')} className="text-[10px] font-bold text-[#ef4444]">
+            Hapus Foto
+          </button>
+        )}
+      </div>
       <div>
         <label className="text-xs font-bold text-[#9BA3BC] mb-1 block">Nama Produk</label>
         <input type="text" placeholder="Contoh: Kopi Susu" value={name} onChange={e => setName(e.target.value)}
@@ -354,23 +394,23 @@ function ProductFormContent({ name, setName, price, setPrice, stock, setStock, o
   );
 }
 
-function getEmojiForProduct(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes('nasi')) return '🍛';
-  if (n.includes('teh') || n.includes('es')) return '🥤';
-  if (n.includes('beras')) return '🍚';
-  if (n.includes('cabai') || n.includes('cabe')) return '🌶️';
-  if (n.includes('telur')) return '🥚';
-  if (n.includes('minyak')) return '🧴';
-  if (n.includes('mie')) return '🍜';
-  if (n.includes('kopi') || n.includes('coffee')) return '☕';
-  if (n.includes('roti') || n.includes('bread')) return '🍞';
-  if (n.includes('gula')) return '🍬';
-  if (n.includes('garam')) return '🧂';
-  if (n.includes('susu')) return '🥛';
-  if (n.includes('buah')) return '🍎';
-  if (n.includes('sayur')) return '🥬';
-  if (n.includes('daging') || n.includes('ayam')) return '🍗';
-  if (n.includes('ikan')) return '🐟';
-  return '📦';
+// ProductImage: tampilkan image jika ada, fallback ke icon Package
+function ProductImage({ image, name, size = 'md' }: { image?: string; name: string; size?: 'sm' | 'md' | 'lg' }) {
+  const sizeClass = size === 'lg' ? 'w-16 h-16 text-3xl' : size === 'sm' ? 'w-8 h-8' : 'w-10 h-10';
+  const iconSize = size === 'lg' ? 28 : size === 'sm' ? 14 : 20;
+  if (image) {
+    return (
+      <img
+        src={image}
+        alt={name}
+        className={`${sizeClass} rounded-xl object-cover shrink-0 bg-[#F8F9FC]`}
+        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+      />
+    );
+  }
+  return (
+    <div className={`${sizeClass} rounded-xl bg-[#F4F6FD] flex items-center justify-center shrink-0`}>
+      <Package size={iconSize} className="text-[#9BA3BC]" strokeWidth={1.5} />
+    </div>
+  );
 }

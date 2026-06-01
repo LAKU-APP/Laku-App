@@ -29,27 +29,27 @@ function AppContent() {
       default: return <Dashboard />;
     }
   };
-
+ 
+  // Mobile: < 768px — BottomNav + TopNav
   if (isMobile) {
-    return (
-      <div
-        className="w-full bg-[#F8F9FD] flex flex-col"
-        style={{ height: '100dvh', overflow: 'hidden' }}
-      >
-        <TopNav />
-        <main className="flex-1 flex flex-col overflow-hidden min-h-0">
-          {renderPage()}
-        </main>
-        <BottomNav />
-        <Toast />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen w-full bg-[#E8EDF8] flex">
+    <div className="min-h-dvh w-full bg-[#F8F9FD] flex flex-col overflow-x-hidden">
+      <TopNav />
+      <main className="flex-1 flex flex-col min-h-0 w-full overflow-y-auto overscroll-contain">
+        {renderPage()}
+      </main>
+
+      <BottomNav />
+      <Toast />
+    </div>
+  );
+}
+
+  // Tablet + Desktop: >= 768px — SideNav + TopNav
+  return (
+    <div className="min-h-dvh w-full bg-[#E8EDF8] flex overflow-hidden">
       <SideNav />
-      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         <TopNav isDesktop />
         <main className="flex-1 flex flex-col overflow-hidden relative">
           {renderPage()}
