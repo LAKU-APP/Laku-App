@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Mail, Lock, Zap, AlertCircle, User, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { apiLogin, apiRegister, saveToken } from '@/lib/api';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 function generateId() {
   return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
@@ -8,6 +10,7 @@ function generateId() {
 
 export default function Login() {
   const { dispatch, showToast, login } = useApp();
+  const isMobile = useIsMobile();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,213 +35,257 @@ export default function Login() {
     }, 180);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
     if (mode === 'register') {
       if (!name.trim()) { setError('Nama harus diisi'); return; }
       if (!email.trim()) { setError('Email harus diisi'); return; }
       if (!password.trim()) { setError('Password harus diisi'); return; }
       if (password.length < 6) { setError('Password minimal 6 karakter'); return; }
       if (password !== confirmPassword) { setError('Password tidak cocok'); return; }
-      setLoading(true);
-      setTimeout(() => {
-        const user = { id: generateId(), name: name.trim(), email };
-        login(user);
-        dispatch({ type: 'SET_TAB', payload: 'dashboard' });
-        showToast('Akun berhasil dibuat!');
-        setLoading(false);
-      }, 800);
     } else {
       if (!email.trim()) { setError('Email harus diisi'); return; }
       if (!password.trim()) { setError('Password harus diisi'); return; }
-      setLoading(true);
-      setTimeout(() => {
-        const user = { id: generateId(), name: email.split('@')[0], email };
+    }
+
+    setLoading(true);
+    try {
+      const res = mode === 'login'
+        ? await apiLogin(email.trim(), password)
+        : await apiRegister(name.trim(), email.trim(), password);
+      saveToken(res.token);
+      login(res.user);
+      dispatch({ type: 'SET_TAB', payload: 'dashboard' });
+      showToast(mode === 'login' ? 'Login berhasil!' : 'Akun berhasil dibuat!');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      const isNetworkError = msg.includes('fetch') || msg.includes('Failed') || msg.includes('NetworkError');
+      if (isNetworkError) {
+        const user = {
+          id: generateId(),
+          name: mode === 'register' ? name.trim() : email.split('@')[0],
+          email: email.trim(),
+        };
         login(user);
         dispatch({ type: 'SET_TAB', payload: 'dashboard' });
-        showToast('Login berhasil!');
-        setLoading(false);
-      }, 600);
+        showToast(mode === 'login' ? 'Login berhasil! (Demo)' : 'Akun dibuat! (Demo)');
+      } else {
+        setError(msg || 'Terjadi kesalahan, coba lagi');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const inputCls = (field: string) =>
-    `flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all duration-200 ${
+  const inputCls = (field: string, compact = false) =>
+    `flex items-center gap-2.5 ${compact ? 'px-3 py-2' : 'px-4 py-3'} rounded-xl border-2 transition-all duration-200 ${
       focusedField === field
         ? 'border-[#1A56DB] bg-[#e8effe]'
         : 'border-[#EEF0F6] bg-[#F8F9FC] hover:border-[#d4e4fb]'
     }`;
 
-  return (
+  const renderForm = (compact = false) => (
     <div
-      className="w-full flex items-center justify-center p-4 overflow-y-auto"
       style={{
-        minHeight: '100dvh',
-        background: 'linear-gradient(135deg, #0f1f5c 0%, #1A56DB 55%, #1340b8 100%)',
+        opacity: animating ? 0 : 1,
+        transform: animating ? 'translateY(8px)' : 'translateY(0)',
+        transition: 'opacity 0.25s cubic-bezier(0.4,0,0.2,1), transform 0.25s cubic-bezier(0.4,0,0.2,1)',
       }}
     >
-      {/* Decorative blobs */}
-      <div className="fixed top-[-100px] right-[-100px] w-[350px] h-[350px] rounded-full bg-white/5 pointer-events-none" />
-      <div className="fixed bottom-[-80px] left-[-80px] w-[280px] h-[280px] rounded-full bg-white/5 pointer-events-none" />
+      <div className={compact ? 'mb-3' : 'mb-6'}>
+        <h2 className={`font-extrabold text-[#1A1F3A] ${compact ? 'text-base' : 'text-xl'}`}>
+          {mode === 'login' ? 'Masuk' : 'Buat Akun'}
+        </h2>
+        <p className={`text-[#9BA3BC] mt-0.5 ${compact ? 'text-[11px]' : 'text-sm'}`}>
+          {mode === 'login' ? 'Selamat datang kembali' : 'Isi data untuk memulai'}
+        </p>
+      </div>
 
-      <div className="w-full max-w-[420px] relative z-10">
-        {/* Logo */}
-        <div className="flex flex-col items-center gap-2 mb-8 animate-fade-up animate-delay-1">
-          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
-            <Zap size={28} className="text-white" strokeWidth={2.5} />
-          </div>
-          <div className="text-center">
-            <div className="text-white font-extrabold text-2xl tracking-tight">LAKU</div>
-            <div className="text-white/60 text-xs font-medium">Sistem Manajemen Toko</div>
-          </div>
+      {error && (
+        <div className={`${compact ? 'mb-3' : 'mb-4'} p-2.5 rounded-xl bg-red-50 border border-red-200 flex gap-2 items-start`}>
+          <AlertCircle size={13} className="text-red-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-red-600 font-medium">{error}</p>
         </div>
+      )}
 
-        {/* Tab switcher */}
-        <div className="flex bg-white/10 backdrop-blur-sm rounded-2xl p-1.5 mb-5 animate-fade-up animate-delay-2">
-          <button
-            onClick={() => switchMode('login')}
-            className={`flex-1 h-10 rounded-xl text-sm font-bold transition-all duration-200 ${
-              mode === 'login' ? 'bg-white text-[#1A56DB] shadow-md' : 'text-white/70 hover:text-white'
-            }`}
-          >
-            Masuk
-          </button>
-          <button
-            onClick={() => switchMode('register')}
-            className={`flex-1 h-10 rounded-xl text-sm font-bold transition-all duration-200 ${
-              mode === 'register' ? 'bg-white text-[#1A56DB] shadow-md' : 'text-white/70 hover:text-white'
-            }`}
-          >
-            Daftar
-          </button>
-        </div>
-
-        {/* Form card */}
-        <div
-          className="bg-white rounded-3xl overflow-hidden shadow-2xl animate-fade-up animate-delay-3"
-          style={{
-            opacity: animating ? 0 : 1,
-            transform: animating ? 'translateY(10px) scale(0.98)' : 'translateY(0) scale(1)',
-            transition: 'opacity 0.18s ease, transform 0.18s ease',
-          }}
-        >
-          <div className="h-1 bg-gradient-to-r from-[#1A56DB] to-[#F97316]" />
-          <div className="p-6 sm:p-8">
-            <div className="mb-5">
-              <h2 className="text-xl font-extrabold text-[#1A1F3A]">
-                {mode === 'login' ? 'Selamat Datang 👋' : 'Buat Akun Baru'}
-              </h2>
-              <p className="text-sm text-[#9BA3BC] mt-1">
-                {mode === 'login' ? 'Masuk untuk mengelola toko Anda' : 'Daftar gratis, mulai kelola toko'}
-              </p>
+      <form onSubmit={handleSubmit} className={`flex flex-col ${compact ? 'gap-2.5' : 'gap-4'}`}>
+        {mode === 'register' && (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-bold text-[#3D4566]">Nama Toko</label>
+            <div className={inputCls('name', compact)}>
+              <User size={compact ? 15 : 17} className={focusedField === 'name' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
+              <input
+                type="text" value={name}
+                onChange={e => { setName(e.target.value); setError(null); }}
+                onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)}
+                className={`flex-1 bg-transparent font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none ${compact ? 'text-xs' : 'text-sm'}`}
+                placeholder="Warung Bu Sri"
+              />
             </div>
+          </div>
+        )}
 
-            {error && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 flex gap-2 items-start">
-                <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-red-600 font-medium">{error}</p>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              {mode === 'register' && (
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#3D4566]">Nama Toko / Nama Anda</label>
-                  <div className={inputCls('name')}>
-                    <User size={17} className={focusedField === 'name' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
-                    <input
-                      type="text" value={name}
-                      onChange={e => { setName(e.target.value); setError(null); }}
-                      onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)}
-                      className="flex-1 bg-transparent text-sm font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none"
-                      placeholder="Warung Bu Sri"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[#3D4566]">Email</label>
-                <div className={inputCls('email')}>
-                  <Mail size={17} className={focusedField === 'email' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
-                  <input
-                    type="email" value={email}
-                    onChange={e => { setEmail(e.target.value); setError(null); }}
-                    onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
-                    className="flex-1 bg-transparent text-sm font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none"
-                    placeholder="nama@domain.com"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-[#3D4566]">Password</label>
-                <div className={inputCls('password')}>
-                  <Lock size={17} className={focusedField === 'password' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
-                  <input
-                    type={showPass ? 'text' : 'password'} value={password}
-                    onChange={e => { setPassword(e.target.value); setError(null); }}
-                    onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
-                    className="flex-1 bg-transparent text-sm font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none"
-                    placeholder={mode === 'register' ? 'Min. 6 karakter' : 'Masukkan password'}
-                  />
-                  <button type="button" onClick={() => setShowPass(!showPass)} className="text-[#9BA3BC] hover:text-[#1A56DB] transition-colors shrink-0">
-                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              {mode === 'register' && (
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-[#3D4566]">Konfirmasi Password</label>
-                  <div className={inputCls('confirm')}>
-                    <Lock size={17} className={focusedField === 'confirm' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
-                    <input
-                      type={showConfirmPass ? 'text' : 'password'} value={confirmPassword}
-                      onChange={e => { setConfirmPassword(e.target.value); setError(null); }}
-                      onFocus={() => setFocusedField('confirm')} onBlur={() => setFocusedField(null)}
-                      className="flex-1 bg-transparent text-sm font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none"
-                      placeholder="Ulangi password"
-                    />
-                    <button type="button" onClick={() => setShowConfirmPass(!showConfirmPass)} className="text-[#9BA3BC] hover:text-[#1A56DB] transition-colors shrink-0">
-                      {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <button
-                type="submit" disabled={loading}
-                className="w-full mt-1 h-12 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
-                style={{ background: 'linear-gradient(135deg, #1A56DB, #1340b8)', boxShadow: '0 4px 20px rgba(26,79,214,0.4)' }}
-              >
-                {loading
-                  ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  : <>{mode === 'login' ? 'Masuk' : 'Buat Akun'}<ArrowRight size={16} /></>
-                }
-              </button>
-
-              {mode === 'login' && (
-                <div className="p-3 rounded-xl bg-[#e8effe] border border-[#d4e4fb]">
-                  <p className="text-xs text-[#1A56DB] font-medium text-center">
-                    💡 Demo: gunakan email & password apapun
-                  </p>
-                </div>
-              )}
-            </form>
-
-            <p className="text-center text-xs text-[#9BA3BC] mt-5">
-              {mode === 'login' ? 'Belum punya akun?' : 'Sudah punya akun?'}{' '}
-              <button onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
-                className="text-[#1A56DB] font-bold hover:underline">
-                {mode === 'login' ? 'Daftar sekarang' : 'Masuk'}
-              </button>
-            </p>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-bold text-[#3D4566]">Email</label>
+          <div className={inputCls('email', compact)}>
+            <Mail size={compact ? 15 : 17} className={focusedField === 'email' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
+            <input
+              type="email" value={email}
+              onChange={e => { setEmail(e.target.value); setError(null); }}
+              onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
+              className={`flex-1 bg-transparent font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none ${compact ? 'text-xs' : 'text-sm'}`}
+              placeholder="nama@domain.com"
+            />
           </div>
         </div>
 
-        <p className="text-center text-white/30 text-xs mt-6">Laku © 2026 • Warung Digital Indonesia</p>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-bold text-[#3D4566]">Password</label>
+          <div className={inputCls('password', compact)}>
+            <Lock size={compact ? 15 : 17} className={focusedField === 'password' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
+            <input
+              type={showPass ? 'text' : 'password'} value={password}
+              onChange={e => { setPassword(e.target.value); setError(null); }}
+              onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
+              className={`flex-1 bg-transparent font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none ${compact ? 'text-xs' : 'text-sm'}`}
+              placeholder={mode === 'register' ? 'Min. 6 karakter' : 'Masukkan password'}
+            />
+            <button type="button" onClick={() => setShowPass(!showPass)} className="text-[#9BA3BC] hover:text-[#1A56DB] transition-colors shrink-0">
+              {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+        </div>
+
+        {mode === 'register' && (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-bold text-[#3D4566]">Konfirmasi Password</label>
+            <div className={inputCls('confirm', compact)}>
+              <Lock size={compact ? 15 : 17} className={focusedField === 'confirm' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
+              <input
+                type={showConfirmPass ? 'text' : 'password'} value={confirmPassword}
+                onChange={e => { setConfirmPassword(e.target.value); setError(null); }}
+                onFocus={() => setFocusedField('confirm')} onBlur={() => setFocusedField(null)}
+                className={`flex-1 bg-transparent font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none ${compact ? 'text-xs' : 'text-sm'}`}
+                placeholder="Ulangi password"
+              />
+              <button type="button" onClick={() => setShowConfirmPass(!showConfirmPass)} className="text-[#9BA3BC] hover:text-[#1A56DB] transition-colors shrink-0">
+                {showConfirmPass ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <button
+          type="submit" disabled={loading}
+          className={`w-full rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60 ${compact ? 'h-9 mt-0.5 text-xs' : 'h-12 mt-1 text-sm'}`}
+          style={{ background: 'linear-gradient(135deg, #1A56DB, #1340b8)', boxShadow: '0 4px 20px rgba(26,79,214,0.35)' }}
+        >
+          {loading
+            ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            : <>{mode === 'login' ? 'Masuk' : 'Buat Akun'}<ArrowRight size={14} /></>
+          }
+        </button>
+
+        {mode === 'login' && (
+          <p className="text-[11px] text-[#9BA3BC] text-center">
+            Mode demo — gunakan email & password apapun
+          </p>
+        )}
+      </form>
+
+      <p className={`text-center text-[#9BA3BC] ${compact ? 'text-[11px] mt-3' : 'text-xs mt-5'}`}>
+        {mode === 'login' ? 'Belum punya akun?' : 'Sudah punya akun?'}{' '}
+        <button
+          onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
+          className="text-[#1A56DB] font-bold hover:underline"
+        >
+          {mode === 'login' ? 'Daftar sekarang' : 'Masuk'}
+        </button>
+      </p>
+    </div>
+  );
+
+  // ── MOBILE ──────────────────────────────────────────────
+  if (isMobile) {
+    return (
+      <div
+        className="w-full flex flex-col items-center justify-center px-4 overflow-y-auto"
+        style={{
+          minHeight: '100dvh',
+          background: 'linear-gradient(160deg, #0f1f5c 0%, #1A56DB 60%, #1e6ef5 100%)',
+        }}
+      >
+        <div className="fixed top-[-60px] right-[-60px] w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
+        <div className="fixed bottom-[-40px] left-[-40px] w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
+
+        <div className="w-full max-w-[320px] relative z-10 py-6">
+          {/* Logo */}
+          <div className="flex items-center gap-2.5 mb-5 animate-fade-up animate-delay-1">
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <Zap size={18} className="text-white" strokeWidth={2.5} />
+            </div>
+            <div>
+              <div className="text-white font-extrabold text-base tracking-tight leading-none">LAKU</div>
+              <div className="text-white/50 text-[10px] font-medium mt-0.5">Manajemen Toko</div>
+            </div>
+          </div>
+
+          {/* Form card */}
+          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-up animate-delay-2 transition-all duration-300 ease-out">
+            <div className="h-[3px] bg-gradient-to-r from-[#1A56DB] to-[#1340b8]" />
+            <div className="p-4">
+              {renderForm(true)}
+            </div>
+          </div>
+
+          <p className="text-center text-white/20 text-[10px] mt-4">© 2026 Laku</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── DESKTOP ─────────────────────────────────────────────
+  return (
+    <div className="w-full flex overflow-hidden" style={{ minHeight: '100dvh' }}>
+
+      {/* Left — minimal branding */}
+      <div
+        className="flex-1 flex flex-col items-center justify-center relative overflow-hidden"
+        style={{ background: 'linear-gradient(160deg, #0a1540 0%, #1340b8 100%)' }}
+      >
+        {/* Geometric shapes — pure CSS, no emoji */}
+        <div className="absolute top-[-160px] right-[-160px] w-[500px] h-[500px] rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute top-[-80px] right-[-80px] w-[320px] h-[320px] rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute bottom-[-140px] left-[-140px] w-[420px] h-[420px] rounded-full border border-white/5 pointer-events-none" />
+        <div className="absolute bottom-[-60px] left-[-60px] w-[240px] h-[240px] rounded-full border border-white/5 pointer-events-none" />
+        {/* Subtle glow */}
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-[#1A56DB]/20 blur-[80px] pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center mb-6">
+            <Zap size={30} className="text-white" strokeWidth={2} />
+          </div>
+          <div className="text-white font-extrabold tracking-[0.15em] text-3xl mb-3">LAKU</div>
+          <div className="text-white/40 text-xs font-medium tracking-widest uppercase">Manajemen Toko</div>
+        </div>
+      </div>
+
+      {/* Right — form panel */}
+      <div
+        className="w-[460px] shrink-0 flex flex-col items-center justify-center bg-white relative overflow-y-auto"
+        style={{ borderRadius: '40px 0 0 40px', boxShadow: '-8px 0 40px rgba(0,0,0,0.12)' }}
+      >
+        <div className="w-full max-w-[340px] px-2 py-12">
+          <div className="mb-8">
+            <div className="text-[11px] font-bold text-[#1A56DB] tracking-widest uppercase mb-2">LAKU</div>
+          </div>
+
+          {renderForm(false)}
+
+          <p className="text-center text-[#DDE1EF] text-[11px] mt-8">© 2026 Laku</p>
+        </div>
       </div>
     </div>
   );

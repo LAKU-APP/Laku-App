@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import type { TabType } from '@/types';
-import { LayoutDashboard, Package, Calculator, Receipt, BarChart3, Zap, TrendingUp, LogOut, User, Mail } from 'lucide-react';
+import { LayoutDashboard, Package, Calculator, Receipt, BarChart3, Zap, LogOut, User, Mail } from 'lucide-react';
 import { useIsTablet } from '@/hooks/use-mobile';
 import ModalSheet from './ModalSheet';
 
@@ -36,10 +36,7 @@ export default function SideNav() {
     setTimeout(() => { logout(); showToast('Sampai jumpa!'); }, 150);
   };
 
-  const todayTxCount = state.transactions.filter(
-    t => t.createdAt.startsWith(new Date().toISOString().split('T')[0]) && t.type === 'OUT'
-  ).length;
-  const lowStockCount = state.products.filter(p => p.stock <= 5).length;
+
 
   return (
     <>
@@ -60,18 +57,7 @@ export default function SideNav() {
           )}
         </div>
 
-        {/* Quick stats card - desktop only */}
-        {!isTablet && (
-          <div className="mx-3 mt-4 mb-2 bg-gradient-to-br from-[#1A56DB] to-[#1340b8] rounded-2xl p-4 relative overflow-hidden">
-            <div className="absolute top-[-20px] right-[-20px] w-20 h-20 rounded-full bg-white/10" />
-            <div className="flex items-center gap-2 mb-2 relative z-10">
-              <TrendingUp size={13} className="text-white/80" />
-              <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">Hari Ini</span>
-            </div>
-            <div className="text-white font-extrabold text-lg relative z-10">{todayTxCount} Transaksi</div>
-            <div className="text-white/60 text-[10px] font-medium relative z-10">{lowStockCount} produk stok rendah</div>
-          </div>
-        )}
+
 
         {/* Nav items */}
         <div className="flex flex-col gap-1 p-2 flex-1 mt-1">
@@ -83,6 +69,7 @@ export default function SideNav() {
           {tabs.map(tab => {
             const isActive = state.activeTab === tab.key;
             const Icon = tab.icon;
+            const isPOS = tab.key === 'pos';
             return (
               <button
                 key={tab.key}
@@ -91,21 +78,34 @@ export default function SideNav() {
                 className={`
                   flex items-center gap-3 rounded-xl transition-all duration-150 group relative
                   ${isTablet ? 'justify-center p-3' : 'px-3 py-2.5'}
+                  ${isPOS && !isActive
+                    ? 'bg-gradient-to-r from-[#e8effe] to-[#dbeafe] text-[#1A56DB] border border-[#1A56DB]/20'
+                    : ''
+                  }
                   ${isActive
                     ? 'bg-[#1A56DB] text-white shadow-md'
-                    : 'text-[#9BA3BC] hover:bg-[#F4F6FD] hover:text-[#1A1F3A]'
+                    : !isPOS ? 'text-[#9BA3BC] hover:bg-[#F4F6FD] hover:text-[#1A1F3A]' : 'hover:bg-[#dbeafe]'
                   }
                 `}
               >
                 {isActive && !isTablet && (
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white/60 rounded-r-full" />
                 )}
-                <Icon size={isTablet ? 22 : 18} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
+                {isPOS && !isActive ? (
+                  <div className={`${isTablet ? 'w-9 h-9' : 'w-8 h-8'} rounded-xl bg-gradient-to-br from-[#1A56DB] to-[#1340b8] flex items-center justify-center shrink-0 shadow-md`}>
+                    <Icon size={isTablet ? 18 : 16} strokeWidth={2.5} className="text-white" />
+                  </div>
+                ) : (
+                  <Icon size={isTablet ? 22 : 18} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
+                )}
                 {!isTablet && (
                   <div className="flex-1 text-left">
-                    <div className={`text-sm font-bold leading-tight ${isActive ? 'text-white' : ''}`}>{tab.label}</div>
-                    <div className={`text-[10px] font-medium leading-tight ${isActive ? 'text-white/70' : 'text-[#DDE1EF] group-hover:text-[#9BA3BC]'}`}>{tab.desc}</div>
+                    <div className={`text-sm font-bold leading-tight ${isActive ? 'text-white' : isPOS ? 'text-[#1A56DB]' : ''}`}>{tab.label}</div>
+                    <div className={`text-[10px] font-medium leading-tight ${isActive ? 'text-white/70' : isPOS ? 'text-[#1A56DB]/60' : 'text-[#DDE1EF] group-hover:text-[#9BA3BC]'}`}>{tab.desc}</div>
                   </div>
+                )}
+                {isPOS && !isActive && !isTablet && (
+                  <div className="w-2 h-2 rounded-full bg-[#1A56DB] shrink-0" />
                 )}
               </button>
             );

@@ -38,25 +38,36 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
   if (!isDesktop) {
     return (
       <>
-        <div className="shrink-0 bg-gradient-to-r from-[#1340b8] to-[#1A56DB] flex justify-between items-center px-5 py-4 relative overflow-hidden">
+        <div
+          className="shrink-0 bg-gradient-to-r from-[#1340b8] to-[#1A56DB] flex justify-between items-center relative overflow-hidden"
+         style={{
+  paddingLeft: 'clamp(12px, 4vw, 18px)',
+  paddingRight: 'clamp(12px, 4vw, 18px)',
+  paddingTop: 'max(8px, env(safe-area-inset-top, 8px))',
+  paddingBottom: '8px',
+  minHeight: 'clamp(48px, 12vw, 58px)',
+}}
+        >
           <div className="absolute right-[-30px] top-[-30px] w-32 h-32 rounded-full bg-white/5" />
           <div className="absolute left-[-20px] bottom-[-20px] w-24 h-24 rounded-full bg-white/5" />
           <div className="relative z-10">
-            <div className="text-white font-extrabold text-xl leading-tight tracking-tight">LAKU</div>
-            <div className="text-white/70 text-xs font-semibold leading-tight mt-0.5">
+            <div className="text-white font-extrabold leading-tight tracking-tight" style={{ fontSize: 'clamp(16px, 5vw, 20px)' }}>LAKU</div>
+            <div className="text-white/70 font-semibold leading-tight mt-0.5" style={{ fontSize: 'clamp(10px, 3vw, 12px)' }}>
               {tabTitles[state.activeTab]?.subtitle || 'Dashboard'}
             </div>
           </div>
-          <div className="flex gap-2.5 items-center relative z-10">
+          <div className="flex gap-2 items-center relative z-10">
             <button
-              className="relative w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center active:bg-white/30 transition-all active:scale-95"
+              className="relative rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center active:bg-white/30 transition-all active:scale-95"
+              style={{ width: 'clamp(32px, 9vw, 38px)', height: 'clamp(32px, 9vw, 38px)' }}
               onClick={() => showToast('3 notifikasi baru')}
             >
               <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#F97316] rounded-full border-2 border-white/30 animate-pulse" />
-              <Bell size={18} className="text-white" strokeWidth={2} />
+              <Bell size={17} className="text-white" strokeWidth={2} />
             </button>
             <button
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white bg-gradient-to-br from-[#f9c97c] to-[#F97316] border-2 border-white/30 active:scale-95 transition-transform shadow-md"
+              className="rounded-xl flex items-center justify-center font-bold text-white bg-gradient-to-br from-[#f9c97c] to-[#F97316] border-2 border-white/30 active:scale-95 transition-transform shadow-md"
+              style={{ width: 'clamp(32px, 9vw, 38px)', height: 'clamp(32px, 9vw, 38px)', fontSize: 'clamp(11px, 3vw, 13px)' }}
               onClick={handleOpenProfile}
             >
               {state.user?.name?.[0]?.toUpperCase() || 'U'}
