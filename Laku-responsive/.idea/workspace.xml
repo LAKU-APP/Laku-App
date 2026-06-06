@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="50fa4fbc-98a2-45a1-ba2d-036a5e9bcd33" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/API.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/PATHS.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/components.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/eslint.config.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/index.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/info.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/package-lock.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/package.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/postcss.config.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/App.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/App.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/BottomNav.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ModalSheet.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/SideNav.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/StatusBar.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/Toast.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/TopNav.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/accordion.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/alert-dialog.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/alert.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/aspect-ratio.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/avatar.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/badge.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/breadcrumb.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/button-group.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/button.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/calendar.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/card.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/carousel.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/chart.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/checkbox.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/collapsible.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/command.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/context-menu.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/dialog.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/components/ui/separator.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/context/AppContext.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/hooks/use-mobile.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/index.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/lib/api.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/lib/utils.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/main.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/pages/Dashboard.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/pages/Insights.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/pages/Login.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/pages/POS.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/pages/Products.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/pages/Records.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/src/types/index.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/tailwind.config.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/tsconfig.app.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/tsconfig.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/tsconfig.node.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Laku-responsive/app/vite.config.ts" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CopilotPersistence">
+    <persistenceIdMap>
+      <entry key="_/home/h3rwthme/Documents/Tar gw beresin dah/BismillahLancarRezeki/Laku-App/Laku-responsive" value="3ElHzEQpmVWEYPcarMjY4yUdesQ" />
+    </persistenceIdMap>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 3,
+  "fromUser": false
+}]]></component>
+  <component name="ProjectId" id="3ElHzEQpmVWEYPcarMjY4yUdesQ" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "git-widget-placeholder": "farhan",
+    "javascript.preferred.runtime.type.id": "node",
+    "last_opened_file_path": "/home/h3rwthme/Documents/Tar gw beresin dah/BismillahLancarRezeki/Laku-App/Laku-responsive",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-WS-261.24374.125" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="50fa4fbc-98a2-45a1-ba2d-036a5e9bcd33" name="Changes" comment="" />
+      <created>1780746495697</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1780746495697</updated>
+      <workItem from="1780746496811" duration="666000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
