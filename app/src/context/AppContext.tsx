@@ -183,26 +183,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => dispatch({ type: 'HIDE_TOAST' }), 2200);
   }, []);
 
-  const login = useCallback((user: { id: string; name: string; email: string }) => {
-    try { localStorage.setItem('user', JSON.stringify(user)); } catch (e) {}
+  const login = useCallback((user: { id: string; name: string; email: string; image?: string }) => {
+    try { localStorage.setItem('user', JSON.stringify(user)); } catch {
+      // localStorage may be unavailable in restricted browser contexts.
+    }
     dispatch({ type: 'SET_USER', payload: user });
   }, []);
 
   const logout = useCallback(() => {
-    try { localStorage.removeItem('user'); } catch (e) {}
+    try { localStorage.removeItem('user'); } catch {
+      // localStorage may be unavailable in restricted browser contexts.
+    }
     clearToken();
     dispatch({ type: 'LOGOUT' });
   }, []);
 
-  const updateUser = useCallback((updates: { name?: string; email?: string }) => {
+  const updateUser = useCallback((updates: { name?: string; email?: string; image?: string }) => {
     if (!state.user) return;
     const updatedUser = { ...state.user, ...updates };
-    try { localStorage.setItem('user', JSON.stringify(updatedUser)); } catch (e) {}
+    try { localStorage.setItem('user', JSON.stringify(updatedUser)); } catch {
+      // localStorage may be unavailable in restricted browser contexts.
+    }
     dispatch({ type: 'UPDATE_USER', payload: updates });
   }, [state.user]);
 
   const setDailyTarget = useCallback((target: number) => {
-    try { localStorage.setItem('dailyTarget', String(target)); } catch (e) {}
+    try { localStorage.setItem('dailyTarget', String(target)); } catch {
+      // localStorage may be unavailable in restricted browser contexts.
+    }
     dispatch({ type: 'SET_DAILY_TARGET', payload: target });
   }, []);
 
@@ -225,6 +233,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useApp() {
   const context = useContext(AppContext);
   if (!context) throw new Error('useApp must be used within AppProvider');

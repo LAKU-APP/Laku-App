@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import ModalSheet from '@/components/ModalSheet';
-import { Wallet, ShoppingBag, Target, Check, X, Receipt } from 'lucide-react';
+import { Wallet, Target, Check, X, Receipt, Store, CircleCheck, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function Dashboard() {
@@ -35,7 +35,9 @@ export default function Dashboard() {
     {
       key: 'kas', label: 'Kas di Tangan',
       value: `Rp ${cashOnHand.toLocaleString('id-ID')}`,
-      bg: 'bg-[#F97316]', shadow: 'stat-orange-shadow', icon: ShoppingBag,
+      bg: 'bg-gradient-to-br from-[#0B3A8D] via-[#1A56DB] to-[#2563EB]',
+      shadow: 'stat-blue-shadow',
+      icon: Wallet,
       detailRows: [
         ['Saldo Awal', 'Rp 1.000.000'],
         ['Pemasukan Hari Ini', `Rp ${todayRevenue.toLocaleString('id-ID')}`],
@@ -46,7 +48,9 @@ export default function Dashboard() {
     {
       key: 'transaksi', label: 'Transaksi',
       value: `${todayTransactions.length}`,
-      bg: 'bg-[#22c55e]', shadow: 'stat-blue-shadow', icon: Receipt,
+      bg: 'bg-gradient-to-br from-[#172554] via-[#1E3A8A] to-[#1D4ED8]',
+      shadow: 'stat-navy-shadow',
+      icon: Receipt,
       detailRows: [
         ['Total Transaksi', `${todayTransactions.length} transaksi`],
         ['Penjualan', `${todayTransactions.filter(t => t.type === 'OUT').length} transaksi`],
@@ -81,11 +85,21 @@ export default function Dashboard() {
     });
   }, [state.transactions, isMobile]);
 
+  const getTransactionVisual = (type: 'sale' | 'purchase' | 'OUT' | 'IN') => {
+    const isSale = type === 'sale' || type === 'OUT';
+    return {
+      Icon: isSale ? ArrowUpRight : ArrowDownLeft,
+      iconBg: isSale ? 'bg-[#E8F1FF]' : 'bg-[#FFF4E8]',
+      iconColor: isSale ? 'text-[#1A56DB]' : 'text-[#B45309]',
+      amountColor: isSale ? 'text-[#16a34a]' : 'text-[#dc2626]',
+    };
+  };
+
   // Laba + Target card — dipakai di mobile & desktop
   const labaTargetCard = (
-    <div className="bg-gradient-to-br from-[#1A56DB] to-[#1340b8] rounded-2xl p-4 relative overflow-hidden">
-      <div className="absolute right-[-30px] top-[-30px] w-28 h-28 rounded-full bg-white/10 pointer-events-none" />
-      <div className="absolute left-[-20px] bottom-[-20px] w-20 h-20 rounded-full bg-white/5 pointer-events-none" />
+    <div className="bg-gradient-to-br from-[#0B3A8D] via-[#1A56DB] to-[#2563EB] rounded-2xl p-4 relative overflow-hidden border border-white/10">
+      <div className="absolute inset-x-0 top-0 h-px bg-white/25 pointer-events-none" />
+      <div className="absolute inset-y-0 right-0 w-24 bg-white/[0.04] pointer-events-none" />
       <div className="relative z-10">
         {/* Top row */}
         <div className="flex items-center justify-between mb-3">
@@ -151,7 +165,10 @@ export default function Dashboard() {
               />
             </div>
             {targetReached && (
-              <div className="mt-2 text-[11px] font-bold text-[#22c55e]">✅ Target tercapai!</div>
+              <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-[#16a34a]/25 rounded-lg px-2 py-1">
+                <CircleCheck size={12} className="text-[#bbf7d0]" strokeWidth={2.5} />
+                Target tercapai
+              </div>
             )}
           </>
         )}
@@ -172,8 +189,8 @@ export default function Dashboard() {
               {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#f9c97c] to-[#F97316] flex items-center justify-center shadow-md">
-            <span className="text-lg">👋</span>
+          <div className="w-10 h-10 rounded-xl bg-white border border-[#E4EAF5] flex items-center justify-center card-shadow">
+            <Store size={19} className="text-[#1A56DB]" strokeWidth={2.4} />
           </div>
         </div>
 
@@ -190,7 +207,8 @@ export default function Dashboard() {
               <button key={stat.key} onClick={() => openModal(stat.key)}
                 className={`${stat.bg} ${stat.shadow} rounded-2xl p-3 flex flex-col gap-1.5 text-white text-left relative overflow-hidden active:scale-[0.97] transition-transform animate-fade-up`}
                 style={{ animationDelay: `${0.15 + i * 0.05}s` }}>
-                <div className="absolute right-[-16px] top-[-16px] w-16 h-16 rounded-full bg-white/10" />
+                <div className="absolute inset-x-0 top-0 h-px bg-white/25 pointer-events-none" />
+                <div className="absolute inset-y-0 right-0 w-14 bg-white/[0.04] pointer-events-none" />
                 <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center relative z-10 shrink-0">
                   <Icon size={16} className="text-white" strokeWidth={2.5} />
                 </div>
@@ -215,16 +233,18 @@ export default function Dashboard() {
                   {state.transactions.map((tx, idx) => {
                     const d = new Date(tx.createdAt);
                     const time = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+                    const visual = getTransactionVisual(tx.type);
+                    const TxIcon = visual.Icon;
                     return (
                       <div key={idx} className="flex items-center gap-3 py-3 border-b border-[#EEF0F6] last:border-b-0">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${tx.type === 'OUT' ? 'bg-[#dcfce7]' : 'bg-[#fee2e2]'}`}>
-                          <span className="text-base">{tx.type === 'OUT' ? '💰' : '🛒'}</span>
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${visual.iconBg}`}>
+                          <TxIcon size={16} className={visual.iconColor} strokeWidth={2.5} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-bold text-[#1A1F3A] truncate">{tx.note || tx.productName}</div>
                           <div className="text-[10px] text-[#9BA3BC] font-medium">{time}</div>
                         </div>
-                        <div className={`text-xs font-extrabold shrink-0 ${tx.type === 'OUT' ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                        <div className={`text-xs font-extrabold shrink-0 ${visual.amountColor}`}>
                           {tx.type === 'OUT' ? '+' : '-'}Rp {Math.abs(tx.totalPrice).toLocaleString('id-ID')}
                         </div>
                       </div>
@@ -257,25 +277,29 @@ export default function Dashboard() {
           {/* Transaction list */}
           {recentTx.length === 0 ? (
             <div className="bg-white rounded-2xl card-shadow py-8 text-center">
-              <div className="text-2xl mb-2">🧾</div>
+              <Receipt size={28} className="text-[#DDE1EF] mx-auto mb-2" strokeWidth={1.8} />
               <div className="text-xs font-bold text-[#9BA3BC]">Belum ada transaksi hari ini</div>
             </div>
           ) : (
-            recentTx.map((tx, i) => (
-              <div key={i} className="bg-white rounded-xl px-3.5 py-3 flex gap-3 items-center card-shadow active:scale-[0.98] transition-transform"
-                style={{ animationDelay: `${0.25 + i * 0.05}s` }}>
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tx.type === 'sale' ? 'bg-gradient-to-br from-[#dcfce7] to-[#bbf7d0]' : 'bg-gradient-to-br from-[#fee2e2] to-[#fecaca]'}`}>
-                  <span className="text-lg">{tx.type === 'sale' ? '💰' : '🛒'}</span>
+            recentTx.map((tx, i) => {
+              const visual = getTransactionVisual(tx.type);
+              const TxIcon = visual.Icon;
+              return (
+                <div key={i} className="bg-white rounded-xl px-3.5 py-3 flex gap-3 items-center card-shadow active:scale-[0.98] transition-transform"
+                  style={{ animationDelay: `${0.25 + i * 0.05}s` }}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${visual.iconBg}`}>
+                    <TxIcon size={17} className={visual.iconColor} strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-[#1A1F3A] truncate">{tx.desc}</div>
+                    <div className="text-[10px] text-[#9BA3BC] font-medium mt-0.5">{tx.time}</div>
+                  </div>
+                  <div className={`text-xs font-extrabold shrink-0 ${visual.amountColor}`}>
+                    {tx.type === 'sale' ? '+' : '-'}Rp {tx.aiAmount.toLocaleString('id-ID')}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-[#1A1F3A] truncate">{tx.desc}</div>
-                  <div className="text-[10px] text-[#9BA3BC] font-medium mt-0.5">{tx.time}</div>
-                </div>
-                <div className={`text-xs font-extrabold shrink-0 ${tx.type === 'sale' ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
-                  {tx.type === 'sale' ? '+' : '-'}Rp {tx.aiAmount.toLocaleString('id-ID')}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -300,7 +324,8 @@ export default function Dashboard() {
             <button key={stat.key} onClick={() => openModal(stat.key)}
               className={`${stat.bg} ${stat.shadow} rounded-2xl p-5 flex flex-col gap-2 text-white text-left relative overflow-hidden active:scale-[0.97] transition-transform animate-fade-up`}
               style={{ animationDelay: `${i * 0.05}s` }}>
-              <div className="absolute right-[-20px] top-[-20px] w-[90px] h-[90px] rounded-full bg-white/10" />
+              <div className="absolute inset-x-0 top-0 h-px bg-white/25 pointer-events-none" />
+              <div className="absolute inset-y-0 right-0 w-20 bg-white/[0.04] pointer-events-none" />
               <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center relative z-10">
                 <Icon size={22} className="text-white" strokeWidth={2.5} />
               </div>
@@ -339,23 +364,27 @@ export default function Dashboard() {
             setModalOpen(true);
           }} className="text-xs font-bold text-[#1A56DB] hover:underline">Lihat semua</button>
         </div>
-        {recentTx.map((tx, i) => (
-          <div key={i} className="flex gap-3 items-center px-4 py-3.5 border-b border-[#EEF0F6] last:border-b-0 hover:bg-[#F8F9FD] transition-colors">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tx.type === 'sale' ? 'bg-gradient-to-br from-[#dcfce7] to-[#bbf7d0]' : 'bg-gradient-to-br from-[#fee2e2] to-[#fecaca]'}`}>
-              <span className="text-lg">{tx.type === 'sale' ? '💰' : '🛒'}</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-[#1A1F3A] truncate">{tx.desc}</div>
-              <div className="text-xs text-[#9BA3BC] font-medium mt-0.5">
-                {tx.type === 'sale'
-                  ? <>Laba: <span className="text-[#22c55e] font-bold">+Rp {tx.aiAmount.toLocaleString('id-ID')}</span></>
-                  : <>Biaya: <span className="text-[#ef4444] font-bold">-Rp {tx.aiAmount.toLocaleString('id-ID')}</span></>
-                }
+        {recentTx.map((tx, i) => {
+          const visual = getTransactionVisual(tx.type);
+          const TxIcon = visual.Icon;
+          return (
+            <div key={i} className="flex gap-3 items-center px-4 py-3.5 border-b border-[#EEF0F6] last:border-b-0 hover:bg-[#F8F9FD] transition-colors">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${visual.iconBg}`}>
+                <TxIcon size={17} className={visual.iconColor} strokeWidth={2.5} />
               </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-[#1A1F3A] truncate">{tx.desc}</div>
+                <div className="text-xs text-[#9BA3BC] font-medium mt-0.5">
+                  {tx.type === 'sale'
+                    ? <>Laba: <span className="text-[#16a34a] font-bold">+Rp {tx.aiAmount.toLocaleString('id-ID')}</span></>
+                    : <>Biaya: <span className="text-[#dc2626] font-bold">-Rp {tx.aiAmount.toLocaleString('id-ID')}</span></>
+                  }
+                </div>
+              </div>
+              <div className="text-xs font-bold text-[#9BA3BC] shrink-0">{tx.time}</div>
             </div>
-            <div className="text-xs font-bold text-[#9BA3BC] shrink-0">{tx.time}</div>
-          </div>
-        ))}
+          );
+        })}
         {recentTx.length === 0 && (
           <div className="text-center py-12 text-[#9BA3BC] text-sm">Belum ada transaksi</div>
         )}

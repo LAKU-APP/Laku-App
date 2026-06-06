@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { TrendingUp, Package, BarChart3, AlertTriangle, Bot, Lightbulb, ChevronDown } from 'lucide-react';
+import { TrendingUp, Package, BarChart3, AlertTriangle, Bot, Lightbulb, ChevronDown, Receipt } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 function allZeroWeek(weekData: { revenue: number }[]) {
@@ -68,17 +68,17 @@ export default function Insights() {
   }, [state.products, state.transactions]);
 
   const predictions = [
-    { product: 'Cabai Merah', qty: '+12 kg', emoji: '🌶️', urgency: 'high' },
-    { product: 'Telur', qty: '+5 kg', emoji: '🥚', urgency: 'medium' },
-    { product: 'Beras', qty: 'Stok cukup', emoji: '🍚', urgency: 'low' },
-    { product: 'Minyak Goreng', qty: '+4 liter', emoji: '🧴', urgency: 'medium' },
+    { product: 'Cabai Merah', qty: '+12 kg', urgency: 'high' },
+    { product: 'Telur', qty: '+5 kg', urgency: 'medium' },
+    { product: 'Beras', qty: 'Stok cukup', urgency: 'low' },
+    { product: 'Minyak Goreng', qty: '+4 liter', urgency: 'medium' },
   ];
 
   const overviewCards = (
     <div className={`grid gap-2.5 ${isMobile ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
       <div className="bg-white rounded-xl p-3 card-shadow animate-fade-up animate-delay-1">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#e8effe] to-[#d4e4fb] flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-xl bg-[#E8F1FF] flex items-center justify-center shrink-0">
             <Package size={15} className="text-[#1A56DB]" strokeWidth={2.5} />
           </div>
           <span className="text-[9px] font-bold text-[#9BA3BC] uppercase tracking-wide leading-tight">Total SKU</span>
@@ -88,38 +88,34 @@ export default function Insights() {
       </div>
       <div className="bg-white rounded-xl p-3 card-shadow animate-fade-up animate-delay-2">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#fde8dc] to-[#fcd4b8] flex items-center justify-center shrink-0">
-            <TrendingUp size={15} className="text-[#F97316]" strokeWidth={2.5} />
+          <div className="w-8 h-8 rounded-xl bg-[#E8F1FF] flex items-center justify-center shrink-0">
+            <TrendingUp size={15} className="text-[#1D4ED8]" strokeWidth={2.5} />
           </div>
           <span className="text-[9px] font-bold text-[#9BA3BC] uppercase tracking-wide leading-tight">Terlaris</span>
         </div>
         <div className="text-base font-extrabold text-[#1A1F3A] leading-tight truncate">{stats.bestSeller}</div>
         <div className="text-[10px] text-[#9BA3BC] font-medium mt-0.5">{stats.bestSellerQty} terjual</div>
       </div>
-      {!isMobile && (
-        <>
-          <div className="bg-white rounded-xl p-4 card-shadow animate-fade-up animate-delay-3">
-            <div className="flex items-center gap-2.5 mb-2">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#dcfce7] to-[#bbf7d0] flex items-center justify-center">
-                <TrendingUp size={17} className="text-[#22c55e]" strokeWidth={2.5} />
-              </div>
-              <span className="text-[10px] font-bold text-[#9BA3BC] uppercase tracking-wide">Total Transaksi</span>
-            </div>
-            <div className="text-2xl font-extrabold text-[#1A1F3A]">{stats.totalTransactions}</div>
-            <div className="text-[10px] text-[#9BA3BC] font-medium mt-0.5">semua waktu</div>
+      <div className="bg-white rounded-xl p-3 card-shadow animate-fade-up animate-delay-3">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-8 h-8 rounded-xl bg-[#E8F1FF] flex items-center justify-center shrink-0">
+            <Receipt size={15} className="text-[#0B3A8D]" strokeWidth={2.5} />
           </div>
-          <div className="bg-white rounded-xl p-4 card-shadow animate-fade-up animate-delay-4">
-            <div className="flex items-center gap-2.5 mb-2">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#fee2e2] to-[#fecaca] flex items-center justify-center">
-                <AlertTriangle size={17} className="text-[#ef4444]" strokeWidth={2.5} />
-              </div>
-              <span className="text-[10px] font-bold text-[#9BA3BC] uppercase tracking-wide">Stok Rendah</span>
-            </div>
-            <div className="text-2xl font-extrabold text-[#ef4444]">{stats.lowStockItems.length + stats.outOfStock.length}</div>
-            <div className="text-[10px] text-[#9BA3BC] font-medium mt-0.5">perlu perhatian</div>
+          <span className="text-[9px] font-bold text-[#9BA3BC] uppercase tracking-wide leading-tight">Transaksi</span>
+        </div>
+        <div className={`${isMobile ? 'text-xl' : 'text-2xl'} font-extrabold text-[#1A1F3A]`}>{stats.totalTransactions}</div>
+        <div className="text-[10px] text-[#9BA3BC] font-medium mt-0.5">semua waktu</div>
+      </div>
+      <div className="bg-white rounded-xl p-3 card-shadow animate-fade-up animate-delay-4">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-8 h-8 rounded-xl bg-[#FEF2F2] flex items-center justify-center shrink-0">
+            <AlertTriangle size={15} className="text-[#dc2626]" strokeWidth={2.5} />
           </div>
-        </>
-      )}
+          <span className="text-[9px] font-bold text-[#9BA3BC] uppercase tracking-wide leading-tight">Stok Rendah</span>
+        </div>
+        <div className={`${isMobile ? 'text-xl' : 'text-2xl'} font-extrabold text-[#dc2626]`}>{stats.lowStockItems.length + stats.outOfStock.length}</div>
+        <div className="text-[10px] text-[#9BA3BC] font-medium mt-0.5">perlu perhatian</div>
+      </div>
     </div>
   );
 
@@ -157,7 +153,7 @@ export default function Insights() {
               </div>
               {/* Bar */}
               <div
-                className="w-full rounded-t-md transition-all duration-700 ease-out"
+                className="w-full rounded-t-md transition-smooth"
                 style={{
                   height: `${heightPercent}%`,
                   background: allZero
@@ -194,22 +190,22 @@ export default function Insights() {
   );
 
   const stockAlerts = (stats.lowStockItems.length > 0 || stats.outOfStock.length > 0) && (
-    <div className="bg-[#fee2e2] rounded-xl p-4 animate-fade-up animate-delay-4">
+    <div className="bg-[#FEF2F2] rounded-xl p-4 animate-fade-up animate-delay-4 border border-[#FECACA]">
       <div className="flex items-center gap-2 mb-3">
-        <AlertTriangle size={16} className="text-[#ef4444]" />
-        <h3 className="text-sm font-extrabold text-[#ef4444]">Peringatan Stok</h3>
+        <AlertTriangle size={16} className="text-[#dc2626]" />
+        <h3 className="text-sm font-extrabold text-[#dc2626]">Peringatan Stok</h3>
       </div>
       <div className={`${!isMobile ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
         {stats.outOfStock.map(p => (
           <div key={p.id} className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
-            <span className="text-xs font-bold text-[#ef4444]">{p.name}</span>
-            <span className="text-[10px] font-extrabold text-[#ef4444] bg-white px-2 py-0.5 rounded">HABIS</span>
+            <span className="text-xs font-bold text-[#991B1B]">{p.name}</span>
+            <span className="text-[10px] font-extrabold text-[#dc2626] bg-white px-2 py-0.5 rounded">HABIS</span>
           </div>
         ))}
         {stats.lowStockItems.map(p => (
           <div key={p.id} className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
-            <span className="text-xs font-bold text-[#F97316]">{p.name}</span>
-            <span className="text-[10px] font-bold text-[#F97316]">Sisa {p.stock}</span>
+            <span className="text-xs font-bold text-[#92400E]">{p.name}</span>
+            <span className="text-[10px] font-bold text-[#B45309]">Sisa {p.stock}</span>
           </div>
         ))}
       </div>
@@ -219,8 +215,8 @@ export default function Insights() {
   const aiPredictions = (
     <div className="bg-white rounded-xl card-shadow animate-fade-up animate-delay-5 overflow-hidden">
       <div className="flex items-center gap-2.5 p-4 pb-3 border-b border-[#EEF0F6]">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#fde8dc] to-[#fcd4b8] flex items-center justify-center shrink-0">
-          <Lightbulb size={17} className="text-[#F97316]" strokeWidth={2.5} />
+        <div className="w-9 h-9 rounded-xl bg-[#E8F1FF] flex items-center justify-center shrink-0">
+          <Lightbulb size={17} className="text-[#1A56DB]" strokeWidth={2.5} />
         </div>
         <h3 className="text-sm font-extrabold text-[#1A1F3A]">Prediksi Belanja Minggu Depan</h3>
       </div>
@@ -228,14 +224,24 @@ export default function Insights() {
         {predictions.map((pred, i) => (
           <div key={i} className="flex items-center justify-between px-3 py-2.5">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-xl bg-[#F8F9FC] flex items-center justify-center shrink-0">
-                <span className="text-base">{pred.emoji}</span>
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                pred.urgency === 'high' ? 'bg-[#FEF2F2]' :
+                pred.urgency === 'medium' ? 'bg-[#FFF7ED]' : 'bg-[#E8F1FF]'
+              }`}>
+                <Package
+                  size={15}
+                  className={
+                    pred.urgency === 'high' ? 'text-[#dc2626]' :
+                    pred.urgency === 'medium' ? 'text-[#B45309]' : 'text-[#1A56DB]'
+                  }
+                  strokeWidth={2.4}
+                />
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-bold text-[#1A1F3A] truncate">{pred.product}</div>
                 <div className={`text-[10px] font-bold mt-0.5 ${
-                  pred.urgency === 'high' ? 'text-[#ef4444]' :
-                  pred.urgency === 'medium' ? 'text-[#F97316]' : 'text-[#22c55e]'}`}>
+                  pred.urgency === 'high' ? 'text-[#dc2626]' :
+                  pred.urgency === 'medium' ? 'text-[#B45309]' : 'text-[#1A56DB]'}`}>
                   {pred.urgency === 'high' ? 'Segera restock' :
                    pred.urgency === 'medium' ? 'Restock minggu ini' : 'Stok aman'}
                 </div>
@@ -249,8 +255,9 @@ export default function Insights() {
   );
 
   const predictionFooter = (
-  <div className="bg-gradient-to-r from-[#1340b8] to-[#1A56DB] rounded-xl animate-fade-up animate-delay-5 relative overflow-hidden">
-    <div className="absolute right-[-20px] top-[-20px] w-24 h-24 rounded-full bg-white/10 pointer-events-none" />
+  <div className="bg-gradient-to-r from-[#0B3A8D] via-[#1340b8] to-[#1A56DB] rounded-xl animate-fade-up animate-delay-2 relative overflow-hidden border border-white/10">
+    <div className="absolute inset-x-0 top-0 h-px bg-white/25 pointer-events-none" />
+    <div className="absolute inset-y-0 right-0 w-24 bg-white/[0.04] pointer-events-none" />
 
     <button
       type="button"
@@ -270,7 +277,7 @@ export default function Insights() {
               AI Prediction
             </span>
             <span className="block text-[11px] text-white/60 font-medium mt-0.5">
-              Tap untuk lihat detail prediksi
+              Buka detail prediksi
             </span>
           </div>
         </div>
@@ -334,16 +341,17 @@ export default function Insights() {
         </div>
       )}
 
-      {overviewCards}
-
       {isMobile ? (
         <>
-          {weeklyChart}
-          {stockAlerts}
-          {aiPredictions}
           {predictionFooter}
+          {overviewCards}
+          {weeklyChart}
+          {aiPredictions}
+          {stockAlerts}
         </>
       ) : (
+        <>
+          {overviewCards}
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-4">
             {weeklyChart}
@@ -354,6 +362,7 @@ export default function Insights() {
             {predictionFooter}
           </div>
         </div>
+        </>
       )}
     </div>
   );
