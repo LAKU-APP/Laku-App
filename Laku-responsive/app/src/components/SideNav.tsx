@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { useApp } from '@/context/AppContext';
 import type { TabType } from '@/types';
-import { LayoutDashboard, Package, Calculator, Receipt, BarChart3, Zap, LogOut, User, Mail } from 'lucide-react';
+import { LayoutDashboard, Package, Calculator, Receipt, BarChart3, Zap, LogOut, User, Mail, Camera, X } from 'lucide-react';
 import { useIsTablet } from '@/hooks/use-mobile';
 import ModalSheet from './ModalSheet';
 
@@ -18,17 +18,32 @@ export default function SideNav() {
   const isTablet = useIsTablet();
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState('');
+  const [profileImage, setProfileImage] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const handleOpenProfile = () => {
     setProfileName(state.user?.name || '');
+    setProfileImage(state.user?.image || '');
     setProfileOpen(true);
   };
 
   const handleSaveProfile = () => {
     if (!profileName.trim()) { showToast('Nama tidak boleh kosong'); return; }
-    updateUser({ name: profileName.trim() });
+    updateUser({ name: profileName.trim(), image: profileImage || undefined });
     showToast('Profil berhasil diperbarui');
     setProfileOpen(false);
+  };
+
+  const handleProfileFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('Ukuran foto maksimal 2MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => setProfileImage(ev.target?.result as string);
+    reader.readAsDataURL(file);
   };
 
   const handleLogout = () => {
@@ -118,10 +133,14 @@ export default function SideNav() {
           onClick={handleOpenProfile}
         >
           <div
-            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 bg-gradient-to-br from-[#f9c97c] to-[#F97316]"
-            style={{ boxShadow: '0 2px 8px rgba(249,115,22,0.3)' }}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 bg-gradient-to-br from-[#60A5FA] to-[#1D4ED8] overflow-hidden"
+            style={{ boxShadow: '0 2px 8px rgba(26,86,219,0.28)' }}
           >
-            {state.user?.name?.[0]?.toUpperCase() || 'U'}
+            {state.user?.image ? (
+              <img src={state.user.image} alt={state.user?.name || 'Profil'} className="w-full h-full object-cover" />
+            ) : (
+              state.user?.name?.[0]?.toUpperCase() || 'U'
+            )}
           </div>
           {!isTablet && (
             <div className="min-w-0 flex-1">
@@ -136,9 +155,30 @@ export default function SideNav() {
       <ModalSheet open={profileOpen} onClose={() => setProfileOpen(false)} title="Profil Saya">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col items-center gap-2 py-2">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#f9c97c] to-[#F97316] flex items-center justify-center shadow-lg">
-              <span className="text-2xl font-bold text-white">{state.user?.name?.[0]?.toUpperCase() || 'U'}</span>
-            </div>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="relative w-20 h-20 rounded-full bg-gradient-to-br from-[#60A5FA] to-[#1D4ED8] flex items-center justify-center shadow-lg overflow-hidden border-4 border-white active:scale-95 transition-smooth"
+            >
+              {profileImage ? (
+                <img src={profileImage} alt={state.user?.name || 'Profil'} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-2xl font-bold text-white">{state.user?.name?.[0]?.toUpperCase() || 'U'}</span>
+              )}
+              <span className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#1A56DB] border-2 border-white flex items-center justify-center">
+                <Camera size={13} className="text-white" strokeWidth={2.5} />
+              </span>
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleProfileFile} />
+            {profileImage && (
+              <button
+                type="button"
+                onClick={() => setProfileImage('')}
+                className="text-[10px] font-bold text-[#dc2626] flex items-center gap-1"
+              >
+                <X size={11} strokeWidth={2.5} /> Hapus Foto
+              </button>
+            )}
             <p className="text-xs text-[#9BA3BC]">{state.user?.email}</p>
           </div>
 
