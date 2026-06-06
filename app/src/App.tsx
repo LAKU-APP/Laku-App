@@ -33,7 +33,7 @@ function AppContent() {
   // Mobile: < 768px — BottomNav + TopNav
   if (isMobile) {
   return (
-    <div className="min-h-dvh w-full bg-[#F8F9FD] flex flex-col overflow-x-hidden">
+    <div className="min-h-dvh w-full bg-[#F5F8FC] flex flex-col overflow-x-hidden">
       <TopNav />
       <main className="flex-1 flex flex-col min-h-0 w-full overflow-y-auto overscroll-contain">
         {renderPage()}
@@ -47,7 +47,7 @@ function AppContent() {
 
   // Tablet + Desktop: >= 768px — SideNav + TopNav
   return (
-    <div className="min-h-dvh w-full bg-[#E8EDF8] flex overflow-hidden">
+    <div className="min-h-dvh w-full bg-[#EEF3F8] flex overflow-hidden">
       <SideNav />
       <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         <TopNav isDesktop />
