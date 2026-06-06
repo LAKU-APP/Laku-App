@@ -1,7 +1,31 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Search, Plus, Minus, ShoppingCart, Trash2, Package } from 'lucide-react';
+import { Search, Plus, Minus, ShoppingCart, Trash2, Package, Printer, Receipt } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+type ReceiptItem = {
+  productId: string;
+  productName: string;
+  price: number;
+  qty: number;
+};
+
+type ReceiptSnapshot = {
+  id: string;
+  storeName: string;
+  createdAt: string;
+  items: ReceiptItem[];
+  total: number;
+};
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 export default function POS() {
   const { state, dispatch, showToast } = useApp();
@@ -9,9 +33,10 @@ export default function POS() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [lastReceipt, setLastReceipt] = useState<ReceiptSnapshot | null>(null);
 
   const filteredProducts = useMemo(() => {
-    let prods = state.products.filter(p => p.stock > 0);
+    const prods = state.products.filter(p => p.stock > 0);
     if (!searchQuery.trim()) return prods;
     return prods.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [state.products, searchQuery]);
@@ -44,29 +69,120 @@ export default function POS() {
     }
 
     setProcessing(true);
+    const receiptId = `TRX-${Date.now().toString(36).toUpperCase()}`;
+    const receiptItems = state.cart.map(item => ({
+      productId: item.productId,
+      productName: item.productName,
+      price: item.price,
+      qty: item.qty,
+    }));
+    const receiptTotal = receiptItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+    const receiptCreatedAt = new Date().toISOString();
+
     setTimeout(() => {
-      const note = `Penjualan: ${state.cart.map(i => `${i.qty}x ${i.productName}`).join(', ')}`;
-      state.cart.forEach(item => {
+      const note = `Penjualan: ${receiptItems.map(i => `${i.qty}x ${i.productName}`).join(', ')}`;
+      receiptItems.forEach(item => {
+        const product = state.products.find(p => p.id === item.productId);
+        if (!product) return;
         // ADD_TRANSACTION for the sale record
         dispatch({
           type: 'ADD_TRANSACTION', payload: {
             id: Math.random().toString(36).substring(2, 15) + Date.now().toString(36),
-            productId: item.productId, productName: item.productName, type: 'OUT' as const,
+            productId: product.id, productName: item.productName, type: 'OUT' as const,
             qty: item.qty, totalPrice: item.price * item.qty,
             note,
-            createdAt: new Date().toISOString(),
+            createdAt: receiptCreatedAt,
           }
         });
         // Only update stock (without creating another transaction)
         dispatch({ type: 'UPDATE_PRODUCT', payload: {
-          ...state.products.find(p => p.id === item.productId)!,
-          stock: state.products.find(p => p.id === item.productId)!.stock - item.qty,
+          ...product,
+          stock: product.stock - item.qty,
         }});
       });
       dispatch({ type: 'CLEAR_CART' });
+      setLastReceipt({
+        id: receiptId,
+        storeName: state.user?.name || 'LAKU',
+        createdAt: receiptCreatedAt,
+        items: receiptItems,
+        total: receiptTotal,
+      });
       setProcessing(false);
-      showToast(`Transaksi berhasil! Total: Rp ${cartTotal.toLocaleString('id-ID')}`);
+      showToast(`Transaksi berhasil! Total: Rp ${receiptTotal.toLocaleString('id-ID')}`);
     }, 800);
+  };
+
+  const printReceipt = (receipt: ReceiptSnapshot) => {
+    const issuedAt = new Date(receipt.createdAt);
+    const rows = receipt.items.map(item => `
+      <tr>
+        <td>
+          <strong>${escapeHtml(item.productName)}</strong><br />
+          <span>${item.qty} x Rp ${item.price.toLocaleString('id-ID')}</span>
+        </td>
+        <td class="right">Rp ${(item.price * item.qty).toLocaleString('id-ID')}</td>
+      </tr>
+    `).join('');
+    const printWindow = window.open('', '_blank', 'width=420,height=640');
+    if (!printWindow) {
+      showToast('Popup print diblokir browser');
+      return;
+    }
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>Struk ${escapeHtml(receipt.id)}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body { margin: 0; padding: 24px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #111827; background: #fff; }
+            .receipt { width: 280px; margin: 0 auto; }
+            h1 { margin: 0; font-size: 20px; text-align: center; letter-spacing: 0.08em; }
+            .sub { text-align: center; font-size: 11px; color: #4b5563; margin-top: 6px; line-height: 1.5; }
+            .line { border-top: 1px dashed #9ca3af; margin: 14px 0; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            td { padding: 5px 0; vertical-align: top; }
+            td span { color: #6b7280; }
+            .right { text-align: right; white-space: nowrap; }
+            .total { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 800; }
+            .footer { text-align: center; font-size: 10px; color: #6b7280; line-height: 1.5; }
+            @media print {
+              body { padding: 0; }
+              .receipt { width: 72mm; padding: 6mm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="receipt">
+            <h1>${escapeHtml(receipt.storeName)}</h1>
+            <div class="sub">
+              ${escapeHtml(receipt.id)}<br />
+              ${issuedAt.toLocaleDateString('id-ID')} ${issuedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+            <div class="line"></div>
+            <table>${rows}</table>
+            <div class="line"></div>
+            <div class="total">
+              <span>Total</span>
+              <span>Rp ${receipt.total.toLocaleString('id-ID')}</span>
+            </div>
+            <div class="line"></div>
+            <div class="footer">
+              Terima kasih<br />
+              Dicetak melalui LAKU
+            </div>
+          </div>
+          <script>
+            window.onload = () => {
+              window.print();
+              setTimeout(() => window.close(), 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const isInCart = (productId: string) => state.cart.some(c => c.productId === productId);
@@ -212,9 +328,31 @@ export default function POS() {
             boxShadow: state.cart.length > 0 && !processing ? '0 4px 20px rgba(26,79,214,0.35)' : 'none',
           }}
         >
-          {processing ? '⏳ Memproses...' : 'Bayar'}
+          {processing ? 'Memproses...' : 'Bayar'}
         </button>
       </div>
+
+      {lastReceipt && state.cart.length === 0 && (
+        <div className="mt-3 rounded-xl bg-[#E8F1FF] border border-[#BFDBFE] p-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0">
+              <Receipt size={16} className="text-[#1A56DB]" strokeWidth={2.5} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-extrabold text-[#1A1F3A] truncate">Struk terakhir</div>
+              <div className="text-[10px] font-semibold text-[#3D4566] truncate">
+                {lastReceipt.id} · Rp {lastReceipt.total.toLocaleString('id-ID')}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => printReceipt(lastReceipt)}
+            className="h-9 px-3 rounded-lg bg-[#1A56DB] text-white text-xs font-bold flex items-center gap-1.5 active:scale-[0.98] transition-smooth shrink-0"
+          >
+            <Printer size={14} strokeWidth={2.4} /> Cetak
+          </button>
+        </div>
+      )}
     </div>
   );
 

@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Bell, LogOut, User, Mail } from 'lucide-react';
+import { Bell, LogOut, User, Mail, Camera, X } from 'lucide-react';
 import ModalSheet from './ModalSheet';
 
 const tabTitles: Record<string, { title: string; subtitle: string }> = {
-  dashboard: { title: 'Dashboard', subtitle: 'Selamat datang kembali 👋' },
+  dashboard: { title: 'Dashboard', subtitle: 'Selamat datang kembali' },
   products: { title: 'Stok Barang', subtitle: 'Kelola inventori warung' },
   pos: { title: 'Kasir', subtitle: 'Proses transaksi penjualan' },
   records: { title: 'Catatan', subtitle: 'Riwayat semua transaksi' },
@@ -15,16 +15,18 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
   const { state, showToast, logout, updateUser } = useApp();
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState('');
+  const [profileImage, setProfileImage] = useState('');
   const currentTab = tabTitles[state.activeTab] || tabTitles.dashboard;
 
   const handleOpenProfile = () => {
     setProfileName(state.user?.name || '');
+    setProfileImage(state.user?.image || '');
     setProfileOpen(true);
   };
 
   const handleSaveProfile = () => {
     if (!profileName.trim()) { showToast('Nama tidak boleh kosong'); return; }
-    updateUser({ name: profileName.trim() });
+    updateUser({ name: profileName.trim(), image: profileImage || undefined });
     showToast('Profil berhasil diperbarui');
     setProfileOpen(false);
   };
@@ -39,7 +41,7 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
     return (
       <>
         <div
-          className="shrink-0 bg-gradient-to-r from-[#1340b8] to-[#1A56DB] flex justify-between items-center relative overflow-hidden"
+          className="shrink-0 bg-gradient-to-r from-[#0B3A8D] via-[#1340b8] to-[#1A56DB] flex justify-between items-center relative overflow-hidden"
          style={{
   paddingLeft: 'clamp(12px, 4vw, 18px)',
   paddingRight: 'clamp(12px, 4vw, 18px)',
@@ -66,11 +68,15 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
               <Bell size={17} className="text-white" strokeWidth={2} />
             </button>
             <button
-              className="rounded-xl flex items-center justify-center font-bold text-white bg-gradient-to-br from-[#f9c97c] to-[#F97316] border-2 border-white/30 active:scale-95 transition-transform shadow-md"
+              className="rounded-xl flex items-center justify-center font-bold text-white bg-gradient-to-br from-[#60A5FA] to-[#1D4ED8] border-2 border-white/30 active:scale-95 transition-smooth shadow-md overflow-hidden"
               style={{ width: 'clamp(32px, 9vw, 38px)', height: 'clamp(32px, 9vw, 38px)', fontSize: 'clamp(11px, 3vw, 13px)' }}
               onClick={handleOpenProfile}
             >
-              {state.user?.name?.[0]?.toUpperCase() || 'U'}
+              {state.user?.image ? (
+                <img src={state.user.image} alt={state.user?.name || 'Profil'} className="w-full h-full object-cover" />
+              ) : (
+                state.user?.name?.[0]?.toUpperCase() || 'U'
+              )}
             </button>
           </div>
         </div>
@@ -81,6 +87,9 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
             setProfileName={setProfileName}
             email={state.user?.email || ''}
             userName={state.user?.name || ''}
+            image={profileImage}
+            setImage={setProfileImage}
+            onImageError={showToast}
             onSave={handleSaveProfile}
             onLogout={handleLogout}
           />
@@ -111,11 +120,15 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
           </button>
 
           <button
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold text-white bg-gradient-to-br from-[#f9c97c] to-[#F97316] active:scale-95 transition-transform hover:shadow-md"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold text-white bg-gradient-to-br from-[#60A5FA] to-[#1D4ED8] active:scale-95 transition-smooth hover:shadow-md overflow-hidden"
             onClick={handleOpenProfile}
             title="Profil"
           >
-            {state.user?.name?.[0]?.toUpperCase() || 'U'}
+            {state.user?.image ? (
+              <img src={state.user.image} alt={state.user?.name || 'Profil'} className="w-full h-full object-cover" />
+            ) : (
+              state.user?.name?.[0]?.toUpperCase() || 'U'
+            )}
           </button>
         </div>
       </div>
@@ -126,6 +139,9 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
           setProfileName={setProfileName}
           email={state.user?.email || ''}
           userName={state.user?.name || ''}
+          image={profileImage}
+          setImage={setProfileImage}
+          onImageError={showToast}
           onSave={handleSaveProfile}
           onLogout={handleLogout}
         />
@@ -134,20 +150,58 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
   );
 }
 
-function ProfileForm({ profileName, setProfileName, email, userName, onSave, onLogout }: {
+function ProfileForm({ profileName, setProfileName, email, userName, image, setImage, onImageError, onSave, onLogout }: {
   profileName: string;
   setProfileName: (v: string) => void;
   email: string;
   userName: string;
+  image: string;
+  setImage: (v: string) => void;
+  onImageError: (message: string) => void;
   onSave: () => void;
   onLogout: () => void;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      onImageError('Ukuran foto maksimal 2MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => setImage(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col items-center gap-2 py-2">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#f9c97c] to-[#F97316] flex items-center justify-center shadow-lg">
-          <span className="text-2xl font-bold text-white">{userName?.[0]?.toUpperCase() || 'U'}</span>
-        </div>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="relative w-20 h-20 rounded-full bg-gradient-to-br from-[#60A5FA] to-[#1D4ED8] flex items-center justify-center shadow-lg overflow-hidden border-4 border-white active:scale-95 transition-smooth"
+        >
+          {image ? (
+            <img src={image} alt={userName || 'Profil'} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-2xl font-bold text-white">{userName?.[0]?.toUpperCase() || 'U'}</span>
+          )}
+          <span className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#1A56DB] border-2 border-white flex items-center justify-center">
+            <Camera size={13} className="text-white" strokeWidth={2.5} />
+          </span>
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        {image && (
+          <button
+            type="button"
+            onClick={() => setImage('')}
+            className="text-[10px] font-bold text-[#dc2626] flex items-center gap-1"
+          >
+            <X size={11} strokeWidth={2.5} /> Hapus Foto
+          </button>
+        )}
         <p className="text-xs text-[#9BA3BC]">{email}</p>
       </div>
 
