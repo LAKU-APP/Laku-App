@@ -1,7 +1,8 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useApp } from '@/context/AppContext';
 import type { TabType } from '@/types';
-import { LayoutDashboard, Package, Calculator, Receipt, BarChart3, Zap, LogOut, User, Mail, Camera, X } from 'lucide-react';
+import { LayoutDashboard, Package, Calculator, Receipt, BarChart3, LogOut, User, Mail, Camera, X } from 'lucide-react';
+import LakuLogo from './LakuLogo';
 import { useIsTablet } from '@/hooks/use-mobile';
 import ModalSheet from './ModalSheet';
 
@@ -62,7 +63,7 @@ export default function SideNav() {
         {/* Logo */}
         <div className={`flex items-center gap-3 border-b border-[#EEF0F6] ${isTablet ? 'justify-center px-0 py-5' : 'px-5 py-5'}`}>
           <div className="w-10 h-10 bg-gradient-to-br from-[#1A56DB] to-[#1340b8] rounded-xl flex items-center justify-center shrink-0 shadow-md">
-            <Zap size={20} className="text-white" strokeWidth={2.5} />
+            <LakuLogo size={22} className="text-white" />
           </div>
           {!isTablet && (
             <div>

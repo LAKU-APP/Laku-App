@@ -9,14 +9,20 @@ import POS from '@/pages/POS';
 import Records from '@/pages/Records';
 import Insights from '@/pages/Insights';
 import Login from '@/pages/Login';
+import Onboarding from '@/components/Onboarding';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 function AppContent() {
-  const { state } = useApp();
+  const { state, completeOnboarding } = useApp();
   const isMobile = useIsMobile();
 
   if (!state.user) {
     return <Login />;
+  }
+
+  // Show onboarding for first-time users
+  if (!state.hasSeenOnboarding) {
+    return <Onboarding onComplete={completeOnboarding} userName={state.user.name} />;
   }
 
   const renderPage = () => {

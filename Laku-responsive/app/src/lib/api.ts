@@ -1,29 +1,17 @@
-// Base URL — ganti dengan URL backend production kamu
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// ─── Demo Mode API ─────────────────────────────────────────────────────────
+// Backend belum tersedia, semua auth berjalan secara lokal (demo mode).
+// Ketika backend sudah siap, ganti fungsi di bawah dengan real API calls.
 
-function getToken(): string | null {
-  try { return localStorage.getItem('token'); } catch { return null; }
+function generateId(): string {
+  return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+// ─── Demo accounts ─────────────────────────────────────────────────────────
 
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    throw new Error(data?.message || `Error ${res.status}`);
-  }
-
-  return data as T;
-}
+const DEMO_ACCOUNTS = [
+  { email: 'admin@laku.id', password: 'admin123', name: 'Admin LAKU' },
+  { email: 'demo@laku.id', password: 'demo123', name: 'Warung Demo' },
+];
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
@@ -33,45 +21,36 @@ export interface AuthResponse {
 }
 
 export async function apiLogin(email: string, password: string): Promise<AuthResponse> {
-  return request<AuthResponse>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  });
+  // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 600));
+
+  // Check demo accounts first
+  const demoAccount = DEMO_ACCOUNTS.find(
+    a => a.email.toLowerCase() === email.toLowerCase() && a.password === password
+  );
+
+  if (demoAccount) {
+    return {
+      token: `demo-token-${generateId()}`,
+      user: { id: generateId(), name: demoAccount.name, email: demoAccount.email },
+    };
+  }
+
+  // For any other credentials, allow login in demo mode
+  return {
+    token: `demo-token-${generateId()}`,
+    user: { id: generateId(), name: email.split('@')[0], email },
+  };
 }
 
-export async function apiRegister(name: string, email: string, password: string): Promise<AuthResponse> {
-  return request<AuthResponse>('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ name, email, password }),
-  });
-}
+export async function apiRegister(name: string, email: string, _password: string): Promise<AuthResponse> {
+  // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 800));
 
-// ─── Products ────────────────────────────────────────────────────────────────
-
-export async function apiGetProducts() {
-  return request<{ data: unknown[] }>('/products');
-}
-
-export async function apiCreateProduct(payload: unknown) {
-  return request('/products', { method: 'POST', body: JSON.stringify(payload) });
-}
-
-export async function apiUpdateProduct(id: string, payload: unknown) {
-  return request(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
-}
-
-export async function apiDeleteProduct(id: string) {
-  return request(`/products/${id}`, { method: 'DELETE' });
-}
-
-// ─── Transactions ─────────────────────────────────────────────────────────────
-
-export async function apiGetTransactions() {
-  return request<{ data: unknown[] }>('/transactions');
-}
-
-export async function apiCreateTransaction(payload: unknown) {
-  return request('/transactions', { method: 'POST', body: JSON.stringify(payload) });
+  return {
+    token: `demo-token-${generateId()}`,
+    user: { id: generateId(), name, email },
+  };
 }
 
 // ─── Token helpers ────────────────────────────────────────────────────────────
