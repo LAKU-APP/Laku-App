@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Mail, Lock, Zap, AlertCircle, User, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Mail, Lock, AlertCircle, User, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { apiLogin, apiRegister, saveToken } from '@/lib/api';
 import { useIsMobile } from '@/hooks/use-mobile';
-
-function generateId() {
-  return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-}
+import LakuLogo from '@/components/LakuLogo';
 
 export default function Login() {
   const { dispatch, showToast, login } = useApp();
@@ -60,20 +57,24 @@ export default function Login() {
       dispatch({ type: 'SET_TAB', payload: 'dashboard' });
       showToast(mode === 'login' ? 'Login berhasil!' : 'Akun berhasil dibuat!');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '';
-      const isNetworkError = msg.includes('fetch') || msg.includes('Failed') || msg.includes('NetworkError');
-      if (isNetworkError) {
-        const user = {
-          id: generateId(),
-          name: mode === 'register' ? name.trim() : email.split('@')[0],
-          email: email.trim(),
-        };
-        login(user);
-        dispatch({ type: 'SET_TAB', payload: 'dashboard' });
-        showToast(mode === 'login' ? 'Login berhasil! (Demo)' : 'Akun dibuat! (Demo)');
-      } else {
-        setError(msg || 'Terjadi kesalahan, coba lagi');
-      }
+      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan, coba lagi';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await apiLogin('admin@laku.id', 'admin123');
+      saveToken(res.token);
+      login(res.user);
+      dispatch({ type: 'SET_TAB', payload: 'dashboard' });
+      showToast('Login sebagai Admin Demo berhasil!');
+    } catch {
+      setError('Gagal login demo');
     } finally {
       setLoading(false);
     }
@@ -189,9 +190,30 @@ export default function Login() {
         </button>
 
         {mode === 'login' && (
-          <p className="text-[11px] text-[#9BA3BC] text-center">
-            Mode demo — gunakan email & password apapun
-          </p>
+          <div className={`flex flex-col items-center ${compact ? 'gap-2' : 'gap-3'}`}>
+            {/* Separator */}
+            <div className="flex items-center gap-3 w-full">
+              <div className="flex-1 h-px bg-[#EEF0F6]" />
+              <span className="text-[10px] text-[#9BA3BC] font-medium">atau</span>
+              <div className="flex-1 h-px bg-[#EEF0F6]" />
+            </div>
+
+            {/* Demo login button */}
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              disabled={loading}
+              className={`w-full rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60
+                bg-gradient-to-r from-[#f0fdf4] to-[#dcfce7] border-2 border-[#bbf7d0] text-[#16a34a]
+                hover:from-[#dcfce7] hover:to-[#bbf7d0] ${compact ? 'h-9 text-xs' : 'h-11 text-sm'}`}
+            >
+              🚀 Masuk Demo (Admin)
+            </button>
+
+            <p className={`text-[#9BA3BC] text-center ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
+              Atau gunakan email & password apapun untuk masuk
+            </p>
+          </div>
         )}
       </form>
 
@@ -223,8 +245,8 @@ export default function Login() {
         <div className="w-full max-w-[320px] relative z-10 py-6">
           {/* Logo */}
           <div className="flex items-center gap-2.5 mb-5 animate-fade-up animate-delay-1">
-            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              <Zap size={18} className="text-white" strokeWidth={2.5} />
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <LakuLogo size={22} className="text-white" />
             </div>
             <div>
               <div className="text-white font-extrabold text-base tracking-tight leading-none">LAKU</div>
@@ -255,7 +277,7 @@ export default function Login() {
         className="flex-1 flex flex-col items-center justify-center relative overflow-hidden"
         style={{ background: 'linear-gradient(160deg, #0a1540 0%, #1340b8 100%)' }}
       >
-        {/* Geometric shapes — pure CSS, no emoji */}
+        {/* Geometric shapes */}
         <div className="absolute top-[-160px] right-[-160px] w-[500px] h-[500px] rounded-full border border-white/5 pointer-events-none" />
         <div className="absolute top-[-80px] right-[-80px] w-[320px] h-[320px] rounded-full border border-white/5 pointer-events-none" />
         <div className="absolute bottom-[-140px] left-[-140px] w-[420px] h-[420px] rounded-full border border-white/5 pointer-events-none" />
@@ -264,8 +286,9 @@ export default function Login() {
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-[#1A56DB]/20 blur-[80px] pointer-events-none" />
 
         <div className="relative z-10 flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center mb-6">
-            <Zap size={30} className="text-white" strokeWidth={2} />
+          <div className="w-20 h-20 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center mb-6"
+            style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+            <LakuLogo size={42} className="text-white" />
           </div>
           <div className="text-white font-extrabold tracking-[0.15em] text-3xl mb-3">LAKU</div>
           <div className="text-white/40 text-xs font-medium tracking-widest uppercase">Manajemen Toko</div>
@@ -278,8 +301,11 @@ export default function Login() {
         style={{ borderRadius: '40px 0 0 40px', boxShadow: '-8px 0 40px rgba(0,0,0,0.12)' }}
       >
         <div className="w-full max-w-[340px] px-2 py-12">
-          <div className="mb-8">
-            <div className="text-[11px] font-bold text-[#1A56DB] tracking-widest uppercase mb-2">LAKU</div>
+          <div className="mb-8 flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1A56DB] to-[#0B3A8D] flex items-center justify-center">
+              <LakuLogo size={18} className="text-white" />
+            </div>
+            <div className="text-[11px] font-bold text-[#1A56DB] tracking-widest uppercase">LAKU</div>
           </div>
 
           {renderForm(false)}

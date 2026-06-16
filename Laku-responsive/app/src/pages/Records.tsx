@@ -234,24 +234,44 @@ export default function Records() {
       </div>
 
       {/* Transaction Count + Export */}
-      <div className={`flex gap-3 ${isMobile ? 'flex-col' : 'items-center justify-between'}`}>
-        <div className="flex justify-between items-center gap-3">
-          <h3 className={`font-extrabold text-[#1A1F3A] ${isMobile ? 'text-sm' : 'text-base'}`}>Riwayat Transaksi</h3>
-          <span className="text-[10px] font-bold text-[#9BA3BC]">{stats.transactionCount} transaksi</span>
-        </div>
-        <div className={`flex gap-2 ${isMobile ? 'w-full' : 'shrink-0'}`}>
-          <button
-            onClick={handleExportCSV}
-            className={`${isMobile ? 'flex-1' : ''} h-9 px-3 rounded-lg bg-white border border-[#DDE1EF] text-[#1A56DB] text-xs font-bold flex items-center justify-center gap-1.5 card-shadow active:scale-[0.98] transition-smooth`}
-          >
-            <Download size={14} strokeWidth={2.4} /> CSV
-          </button>
-          <button
-            onClick={handleExportPDF}
-            className={`${isMobile ? 'flex-1' : ''} h-9 px-3 rounded-lg bg-[#1A56DB] text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-[0.98] transition-smooth`}
-          >
-            <FileText size={14} strokeWidth={2.4} /> PDF
-          </button>
+      <div className="bg-white rounded-xl card-shadow p-4 animate-fade-up animate-delay-3">
+        <div className={`flex gap-3 ${isMobile ? 'flex-col' : 'items-center justify-between'}`}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#e8effe] to-[#d4e4fb] flex items-center justify-center shrink-0">
+              <Receipt size={18} className="text-[#1A56DB]" strokeWidth={2.5} />
+            </div>
+            <div>
+              <h3 className={`font-extrabold text-[#1A1F3A] ${isMobile ? 'text-sm' : 'text-base'}`}>Riwayat Transaksi</h3>
+              <span className="text-[11px] font-semibold text-[#9BA3BC]">{stats.transactionCount} transaksi ditemukan</span>
+            </div>
+          </div>
+
+          {/* Export Buttons — redesigned for clarity */}
+          <div className={`flex gap-2.5 ${isMobile ? 'w-full' : 'shrink-0'}`}>
+            <button
+              onClick={handleExportCSV}
+              className={`${isMobile ? 'flex-1' : ''} h-11 px-4 rounded-xl bg-[#f0fdf4] border-2 border-[#bbf7d0] text-[#16a34a]
+                         text-xs font-bold flex items-center justify-center gap-2
+                         hover:bg-[#dcfce7] active:scale-[0.97] transition-all`}
+              style={{ boxShadow: '0 2px 8px rgba(34,197,94,0.12)' }}
+            >
+              <Download size={16} strokeWidth={2.5} />
+              <span>Export CSV</span>
+            </button>
+            <button
+              onClick={handleExportPDF}
+              className={`${isMobile ? 'flex-1' : ''} h-11 px-4 rounded-xl text-white
+                         text-xs font-bold flex items-center justify-center gap-2
+                         hover:opacity-90 active:scale-[0.97] transition-all`}
+              style={{
+                background: 'linear-gradient(135deg, #1A56DB, #0B3A8D)',
+                boxShadow: '0 4px 16px rgba(26,86,219,0.3)',
+              }}
+            >
+              <FileText size={16} strokeWidth={2.5} />
+              <span>Export PDF</span>
+            </button>
+          </div>
         </div>
       </div>
 

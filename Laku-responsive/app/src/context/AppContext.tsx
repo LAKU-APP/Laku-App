@@ -45,6 +45,7 @@ interface AppState {
   user?: { id: string; name: string; email: string; image?: string } | null;
   dailyTarget: number;
   notifications: Notification[];
+  hasSeenOnboarding: boolean;
 }
 
 type AppAction =
@@ -65,6 +66,7 @@ type AppAction =
   | { type: 'ADD_NOTIFICATION'; payload: Notification }
   | { type: 'MARK_NOTIFICATION_READ'; payload: string }
   | { type: 'CLEAR_NOTIFICATIONS' }
+  | { type: 'SET_ONBOARDING_COMPLETE' }
   | { type: 'LOGOUT' };
 
 const initialState: AppState = {
@@ -76,6 +78,7 @@ const initialState: AppState = {
   user: null,
   dailyTarget: 300000,
   notifications: [],
+  hasSeenOnboarding: false,
 };
 
 function generateId(): string {
@@ -145,6 +148,8 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, notifications: state.notifications.map(n => n.id === action.payload ? { ...n, read: true } : n) };
     case 'CLEAR_NOTIFICATIONS':
       return { ...state, notifications: [] };
+    case 'SET_ONBOARDING_COMPLETE':
+      return { ...state, hasSeenOnboarding: true };
     case 'LOGOUT':
       return { ...state, user: null };
     default:
@@ -161,6 +166,7 @@ interface AppContextType {
   updateUser: (updates: { name?: string; email?: string; image?: string }) => void;
   setDailyTarget: (target: number) => void;
   addNotification: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
+  completeOnboarding: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -172,7 +178,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const user = raw ? JSON.parse(raw) : null;
       const savedTarget = localStorage.getItem('dailyTarget');
       const dailyTarget = savedTarget ? parseInt(savedTarget) : 300000;
-      return { ...init, user, dailyTarget };
+      const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding') === 'true';
+      return { ...init, user, dailyTarget, hasSeenOnboarding };
     } catch {
       return { ...init, user: null };
     }
@@ -226,8 +233,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
   }, []);
 
+  const completeOnboarding = useCallback(() => {
+    try { localStorage.setItem('hasSeenOnboarding', 'true'); } catch {
+      // localStorage may be unavailable in restricted browser contexts.
+    }
+    dispatch({ type: 'SET_ONBOARDING_COMPLETE' });
+  }, []);
+
   return (
-    <AppContext.Provider value={{ state, dispatch, showToast, login, logout, updateUser, setDailyTarget, addNotification }}>
+    <AppContext.Provider value={{ state, dispatch, showToast, login, logout, updateUser, setDailyTarget, addNotification, completeOnboarding }}>
       {children}
     </AppContext.Provider>
   );
