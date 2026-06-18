@@ -1,10 +1,12 @@
 export interface Product {
   id: string;
   name: string;
-  price: number;
+  price: number; // harga jual (sell price)
+  costPrice?: number; // harga beli (cost price) — for profit calculation
   stock: number;
   emoji: string;
   image?: string; // URL atau base64 image
+  category?: string; // kategori produk
   createdAt: string;
 }
 
@@ -16,6 +18,8 @@ export interface Transaction {
   qty: number;
   totalPrice: number;
   note?: string;
+  paymentMethod?: 'cash' | 'transfer' | 'qris';
+  discount?: number; // nominal diskon
   createdAt: string;
 }
 
@@ -26,7 +30,7 @@ export interface CartItem {
   qty: number;
 }
 
-export type TabType = 'dashboard' | 'products' | 'pos' | 'records' | 'insights';
+export type TabType = 'dashboard' | 'products' | 'pos' | 'records' | 'insights' | 'settings';
 
 export interface ToastState {
   visible: boolean;
@@ -54,4 +58,27 @@ export interface DashboardStats {
   todayRevenue: number;
   todayExpense: number;
   targetProfit: number;
+}
+
+export interface ReceiptSnapshot {
+  id: string;
+  storeName: string;
+  createdAt: string;
+  items: { productId: string; productName: string; price: number; qty: number }[];
+  total: number;
+  discount?: number;
+  paymentMethod?: 'cash' | 'transfer' | 'qris';
+  cashPaid?: number;
+  change?: number;
+}
+
+export interface StoreSettings {
+  storeName: string;
+  storeAddress: string;
+  storePhone: string; // no. HP toko — tampil di struk
+  receiptNote: string; // catatan/ucapan di kaki struk
+  initialCash: number; // saldo awal kas
+  lowStockThreshold: number; // batas stok dianggap "rendah"
+  currency: string;
+  darkMode: boolean;
 }

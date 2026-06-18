@@ -1,6 +1,9 @@
 /**
- * LakuLogo — Custom SVG logo for LAKU app.
- * A stylized shopping bag with a checkmark, representing store/retail management.
+ * LakuLogo — lambang khas aplikasi LAKU.
+ *
+ * Sebuah tas belanja dengan garis tren naik di dalamnya: melambangkan ritel
+ * yang "laku"/laris. Memakai `currentColor` agar warnanya mengikuti teks induk
+ * (mis. putih di atas latar gradien biru), dengan sorotan tipis untuk kedalaman.
  */
 interface LakuLogoProps {
   size?: number;
@@ -16,35 +19,52 @@ export default function LakuLogo({ size = 24, className = '' }: LakuLogoProps) {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
+      role="img"
+      aria-label="LAKU"
     >
-      {/* Shopping bag body */}
+      {/* Pegangan tas */}
       <path
-        d="M6 10C6 8.89543 6.89543 8 8 8H24C25.1046 8 26 8.89543 26 10V25C26 26.6569 24.6569 28 23 28H9C7.34315 28 6 26.6569 6 25V10Z"
-        fill="currentColor"
-        opacity="0.9"
-      />
-      {/* Bag handle */}
-      <path
-        d="M12 8V7C12 4.79086 13.7909 3 16 3C18.2091 3 20 4.79086 20 7V8"
+        d="M11.5 10V7.5C11.5 5.01472 13.5147 3 16 3C18.4853 3 20.5 5.01472 20.5 7.5V10"
         stroke="currentColor"
-        strokeWidth="2.5"
+        strokeWidth="2.4"
         strokeLinecap="round"
         fill="none"
       />
-      {/* Checkmark inside bag */}
+      {/* Badan tas — sudut membulat lembut */}
       <path
-        d="M12 17.5L15 20.5L21 14.5"
+        d="M6.5 12C6.5 10.6193 7.61929 9.5 9 9.5H23C24.3807 9.5 25.5 10.6193 25.5 12V23.5C25.5 25.7091 23.7091 27.5 21.5 27.5H10.5C8.29086 27.5 6.5 25.7091 6.5 23.5V12Z"
+        fill="currentColor"
+      />
+      {/* Sorotan tipis di tepi atas badan tas untuk kesan dimensi */}
+      <path
+        d="M9 9.5H23C24.3807 9.5 25.5 10.6193 25.5 12V12.5H6.5V12C6.5 10.6193 7.61929 9.5 9 9.5Z"
+        fill="white"
+        opacity="0.22"
+      />
+      {/* Garis tren naik (pertumbuhan penjualan) */}
+      <path
+        d="M11 21L14.5 17.5L17.5 20L21 15.5"
         stroke="white"
-        strokeWidth="2.5"
+        strokeWidth="2.1"
         strokeLinecap="round"
         strokeLinejoin="round"
+        fill="none"
+      />
+      {/* Kepala panah di ujung garis tren */}
+      <path
+        d="M18.4 15.5H21V18.1"
+        stroke="white"
+        strokeWidth="2.1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
       />
     </svg>
   );
 }
 
 /**
- * LakuLogoFull — Logo + text for branding areas.
+ * LakuLogoMark — lambang di dalam kotak gradien, untuk area branding.
  */
 export function LakuLogoMark({ size = 40, className = '' }: { size?: number; className?: string }) {
   return (

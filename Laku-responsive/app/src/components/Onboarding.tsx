@@ -2,13 +2,17 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Package, Calculator, Receipt, BarChart3,
   ChevronRight, ChevronLeft, Sparkles, ArrowRight,
-  Target, TrendingUp, Download, ShoppingCart, Store
+  Target, TrendingUp, Download, ShoppingCart, Store, Phone
 } from 'lucide-react';
+import { useApp } from '@/context/AppContext';
+import { formatRupiah } from '@/lib/finance';
 
 interface OnboardingProps {
   onComplete: () => void;
   userName?: string;
 }
+
+const targetPresets = [100000, 200000, 300000, 500000];
 
 const steps = [
   {
@@ -72,6 +76,28 @@ const steps = [
     visual: 'insights',
   },
   {
+    id: 'setup-store',
+    icon: Store,
+    iconBg: 'from-[#1A56DB] to-[#0B3A8D]',
+    title: 'Atur Profil Toko',
+    subtitle: 'Biar struk kamu tampil profesional',
+    description: 'Isi nama dan nomor toko. Nama ini akan muncul di struk penjualan. Semua bisa diubah lagi kapan saja di Pengaturan.',
+    tip: '💡 Boleh dikosongkan dulu, isi nanti juga bisa',
+    visual: 'setup-store',
+    interactive: true,
+  },
+  {
+    id: 'setup-target',
+    icon: Target,
+    iconBg: 'from-[#059669] to-[#10B981]',
+    title: 'Tentukan Target Harian',
+    subtitle: 'Pacu semangat jualan tiap hari',
+    description: 'Berapa target laba per hari yang ingin kamu capai? Progresnya akan tampil di Dashboard setiap hari.',
+    tip: '💡 Pilih salah satu atau isi angka sendiri',
+    visual: 'setup-target',
+    interactive: true,
+  },
+  {
     id: 'ready',
     icon: Sparkles,
     iconBg: 'from-[#1A56DB] to-[#0B3A8D]',
@@ -82,6 +108,12 @@ const steps = [
     visual: 'ready',
   },
 ];
+
+// Bersihkan input angka menjadi bilangan bulat non-negatif.
+function toAmount(value: string): number {
+  const n = parseInt(value.replace(/\D/g, ''), 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
 
 function StepVisual({ visual }: { visual: string }) {
   const iconClass = 'text-white';
@@ -244,14 +276,34 @@ function StepVisual({ visual }: { visual: string }) {
 }
 
 export default function Onboarding({ onComplete, userName }: OnboardingProps) {
+  const { updateStoreSettings, setDailyTarget } = useApp();
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
+
+  // Data setup yang diisi pengguna baru selama onboarding.
+  const [storeName, setStoreName] = useState(userName || '');
+  const [storePhone, setStorePhone] = useState('');
+  const [dailyTarget, setDailyTargetInput] = useState('200000');
+
   const step = steps[currentStep];
   const isLast = currentStep === steps.length - 1;
   const isFirst = currentStep === 0;
   const Icon = step.icon;
 
+  // Simpan data setup saat meninggalkan langkah interaktif, supaya tetap
+  // tersimpan walau pengguna melewati langkah berikutnya.
+  const commitStep = () => {
+    if (step.id === 'setup-store') {
+      updateStoreSettings({ storeName: storeName.trim(), storePhone: storePhone.trim() });
+    }
+    if (step.id === 'setup-target') {
+      const target = toAmount(dailyTarget);
+      if (target > 0) setDailyTarget(target);
+    }
+  };
+
   const goNext = () => {
+    commitStep();
     if (isLast) { onComplete(); return; }
     setDirection('next');
     setCurrentStep(prev => prev + 1);
@@ -309,9 +361,42 @@ export default function Onboarding({ onComplete, userName }: OnboardingProps) {
           <p className="text-sm text-white/50 leading-relaxed max-w-[340px] mx-auto">{step.description}</p>
         </div>
 
-        {/* Visual */}
+        {/* Visual / Setup interaktif */}
         <div key={`visual-${currentStep}-${direction}`} className="mb-6 w-full flex justify-center animate-fade-up" style={{ animationDelay: '0.1s' }}>
-          <StepVisual visual={step.visual} />
+          {step.id === 'setup-store' ? (
+            <div className="w-full max-w-[300px] flex flex-col gap-3">
+              <SetupInput icon={Store} label="Nama Toko" value={storeName} onChange={setStoreName} placeholder="Warung Bu Sri" autoFocus />
+              <SetupInput icon={Phone} label="Nomor HP (opsional)" value={storePhone} onChange={setStorePhone} placeholder="0812-3456-7890" type="tel" />
+            </div>
+          ) : step.id === 'setup-target' ? (
+            <div className="w-full max-w-[300px] flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-2">
+                {targetPresets.map(preset => {
+                  const active = toAmount(dailyTarget) === preset;
+                  return (
+                    <button
+                      key={preset}
+                      onClick={() => setDailyTargetInput(String(preset))}
+                      className={`h-11 rounded-xl text-sm font-bold transition-all border ${
+                        active
+                          ? 'bg-white text-[#1A56DB] border-white'
+                          : 'bg-white/[0.06] text-white/80 border-white/15 hover:bg-white/10'
+                      }`}
+                    >
+                      {formatRupiah(preset)}
+                    </button>
+                  );
+                })}
+              </div>
+              <SetupInput
+                icon={Target} label="Atau isi sendiri" value={dailyTarget}
+                onChange={v => setDailyTargetInput(v.replace(/\D/g, ''))}
+                placeholder="200000" type="tel"
+              />
+            </div>
+          ) : (
+            <StepVisual visual={step.visual} />
+          )}
         </div>
 
         {/* Tip */}
@@ -355,5 +440,34 @@ export default function Onboarding({ onComplete, userName }: OnboardingProps) {
         </p>
       </div>
     </div>
+  );
+}
+
+// Input bergaya terang di atas latar gradien gelap untuk langkah setup.
+function SetupInput({ icon: Icon, label, value, onChange, placeholder, type = 'text', autoFocus = false }: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+  autoFocus?: boolean;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5 text-left">
+      <span className="text-[11px] font-bold text-white/60">{label}</span>
+      <div className="flex items-center gap-2.5 h-12 px-4 rounded-xl bg-white/[0.08] border border-white/15 focus-within:border-white/40 focus-within:bg-white/[0.12] transition-colors">
+        <Icon size={16} className="text-white/50 shrink-0" strokeWidth={2.2} />
+        <input
+          type={type}
+          inputMode={type === 'tel' ? 'numeric' : undefined}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          autoFocus={autoFocus}
+          className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-white placeholder-white/30 outline-none"
+        />
+      </div>
+    </label>
   );
 }

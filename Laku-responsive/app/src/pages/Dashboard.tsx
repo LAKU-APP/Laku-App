@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
 import ModalSheet from '@/components/ModalSheet';
-import { Wallet, Target, Check, X, Receipt, Store, CircleCheck, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Wallet, Target, Check, X, Receipt, Store, CircleCheck, ArrowUpRight, ArrowDownLeft, Package, ShoppingCart } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { calcRevenue, calcExpense, calcGrossProfit, calcCashOnHand, transactionProfit, formatRupiah } from '@/lib/finance';
 
 export default function Dashboard() {
-  const { state, setDailyTarget } = useApp();
+  const { state, dispatch, setDailyTarget } = useApp();
   const isMobile = useIsMobile();
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
@@ -16,10 +17,11 @@ export default function Dashboard() {
   const today = new Date().toISOString().split('T')[0];
   const todayTransactions = state.transactions.filter(t => t.createdAt.startsWith(today));
 
-  const todayRevenue = todayTransactions.filter(t => t.type === 'OUT').reduce((sum, t) => sum + t.totalPrice, 0);
-  const todayExpense = todayTransactions.filter(t => t.type === 'IN').reduce((sum, t) => sum + Math.abs(t.totalPrice), 0);
-  const todayProfit = todayRevenue - todayExpense * 0.2;
-  const cashOnHand = 1200000 + todayRevenue - todayExpense;
+  // Semua angka uang dihitung lewat modul finance agar konsisten di seluruh app.
+  const todayRevenue = calcRevenue(todayTransactions);
+  const todayExpense = calcExpense(todayTransactions);
+  const todayProfit = calcGrossProfit(todayTransactions, state.products);
+  const cashOnHand = calcCashOnHand(state.storeSettings.initialCash, state.transactions);
   const targetProgress = state.dailyTarget > 0 ? (todayProfit / state.dailyTarget) * 100 : 0;
   const targetReached = todayProfit >= state.dailyTarget && state.dailyTarget > 0;
 
@@ -31,6 +33,12 @@ export default function Dashboard() {
     }
   };
 
+  // CTA empty state: arahkan ke langkah berikutnya yang masuk akal —
+  // tambah produk dulu bila belum ada, jika sudah ada langsung ke kasir.
+  const goToFirstAction = () => {
+    dispatch({ type: 'SET_TAB', payload: state.products.length > 0 ? 'pos' : 'products' });
+  };
+
   const smallStats = [
     {
       key: 'kas', label: 'Kas di Tangan',
@@ -39,10 +47,10 @@ export default function Dashboard() {
       shadow: 'stat-blue-shadow',
       icon: Wallet,
       detailRows: [
-        ['Saldo Awal', 'Rp 1.000.000'],
-        ['Pemasukan Hari Ini', `Rp ${todayRevenue.toLocaleString('id-ID')}`],
-        ['Pengeluaran Hari Ini', `Rp ${todayExpense.toLocaleString('id-ID')}`],
-        ['Saldo Sekarang', `Rp ${cashOnHand.toLocaleString('id-ID')}`],
+        ['Saldo Awal', formatRupiah(state.storeSettings.initialCash)],
+        ['Total Pemasukan', formatRupiah(calcRevenue(state.transactions))],
+        ['Total Pengeluaran', formatRupiah(calcExpense(state.transactions))],
+        ['Saldo Sekarang', formatRupiah(cashOnHand)],
       ],
     },
     {
@@ -79,11 +87,23 @@ export default function Dashboard() {
       const d = new Date(t.createdAt);
       const time = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
       if (t.type === 'OUT') {
-        return { time, desc: t.note || `Penjualan: ${t.qty}x ${t.productName}`, aiAmount: Math.floor(t.totalPrice * 0.8), type: 'sale' as const };
+        return {
+          time,
+          desc: t.note || `Penjualan: ${t.qty}x ${t.productName}`,
+          amount: t.totalPrice,
+          profit: transactionProfit(t, state.products),
+          type: 'sale' as const,
+        };
       }
-      return { time, desc: t.note || `Pembelian: ${t.qty}x ${t.productName}`, aiAmount: Math.abs(t.totalPrice), type: 'purchase' as const };
+      return {
+        time,
+        desc: t.note || `Pembelian: ${t.qty}x ${t.productName}`,
+        amount: Math.abs(t.totalPrice),
+        profit: 0,
+        type: 'purchase' as const,
+      };
     });
-  }, [state.transactions, isMobile]);
+  }, [state.transactions, state.products, isMobile]);
 
   const getTransactionVisual = (type: 'sale' | 'purchase' | 'OUT' | 'IN') => {
     const isSale = type === 'sale' || type === 'OUT';
@@ -200,12 +220,12 @@ export default function Dashboard() {
         </div>
 
         {/* Kas & Transaksi */}
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-2.5 auto-rows-fr">
           {smallStats.map((stat, i) => {
             const Icon = stat.icon;
             return (
               <button key={stat.key} onClick={() => openModal(stat.key)}
-                className={`${stat.bg} ${stat.shadow} rounded-2xl p-3 flex flex-col gap-1.5 text-white text-left relative overflow-hidden active:scale-[0.97] transition-transform animate-fade-up`}
+                className={`${stat.bg} ${stat.shadow} rounded-2xl p-3 h-full flex flex-col gap-1.5 text-white text-left relative overflow-hidden active:scale-[0.97] transition-transform animate-fade-up`}
                 style={{ animationDelay: `${0.15 + i * 0.05}s` }}>
                 <div className="absolute inset-x-0 top-0 h-px bg-white/25 pointer-events-none" />
                 <div className="absolute inset-y-0 right-0 w-14 bg-white/[0.04] pointer-events-none" />
@@ -276,10 +296,7 @@ export default function Dashboard() {
 
           {/* Transaction list */}
           {recentTx.length === 0 ? (
-            <div className="bg-white rounded-2xl card-shadow py-8 text-center">
-              <Receipt size={28} className="text-[#DDE1EF] mx-auto mb-2" strokeWidth={1.8} />
-              <div className="text-xs font-bold text-[#9BA3BC]">Belum ada transaksi hari ini</div>
-            </div>
+            <DashboardEmptyState hasProducts={state.products.length > 0} onAction={goToFirstAction} />
           ) : (
             recentTx.map((tx, i) => {
               const visual = getTransactionVisual(tx.type);
@@ -295,7 +312,7 @@ export default function Dashboard() {
                     <div className="text-[10px] text-[#9BA3BC] font-medium mt-0.5">{tx.time}</div>
                   </div>
                   <div className={`text-xs font-extrabold shrink-0 ${visual.amountColor}`}>
-                    {tx.type === 'sale' ? '+' : '-'}Rp {tx.aiAmount.toLocaleString('id-ID')}
+                    {tx.type === 'sale' ? '+' : '-'}{formatRupiah(tx.amount)}
                   </div>
                 </div>
               );
@@ -376,8 +393,8 @@ export default function Dashboard() {
                 <div className="text-sm font-bold text-[#1A1F3A] truncate">{tx.desc}</div>
                 <div className="text-xs text-[#9BA3BC] font-medium mt-0.5">
                   {tx.type === 'sale'
-                    ? <>Laba: <span className="text-[#16a34a] font-bold">+Rp {tx.aiAmount.toLocaleString('id-ID')}</span></>
-                    : <>Biaya: <span className="text-[#dc2626] font-bold">-Rp {tx.aiAmount.toLocaleString('id-ID')}</span></>
+                    ? <>Laba: <span className="text-[#16a34a] font-bold">+{formatRupiah(tx.profit)}</span></>
+                    : <>Biaya: <span className="text-[#dc2626] font-bold">-{formatRupiah(tx.amount)}</span></>
                   }
                 </div>
               </div>
@@ -386,13 +403,44 @@ export default function Dashboard() {
           );
         })}
         {recentTx.length === 0 && (
-          <div className="text-center py-12 text-[#9BA3BC] text-sm">Belum ada transaksi</div>
+          <div className="px-4 py-10">
+            <DashboardEmptyState hasProducts={state.products.length > 0} onAction={goToFirstAction} />
+          </div>
         )}
       </div>
 
       <ModalSheet open={modalOpen} onClose={() => setModalOpen(false)} title={modalTitle}>
         {modalContent}
       </ModalSheet>
+    </div>
+  );
+}
+
+// Empty state Dashboard dengan ajakan bertindak (CTA). Pesannya menyesuaikan:
+// belum punya produk → ajak tambah produk; sudah punya → ajak buat transaksi.
+function DashboardEmptyState({ hasProducts, onAction }: { hasProducts: boolean; onAction: () => void }) {
+  const Icon = hasProducts ? ShoppingCart : Package;
+  return (
+    <div className="bg-white rounded-2xl card-shadow py-8 px-5 flex flex-col items-center text-center">
+      <div className="w-12 h-12 rounded-2xl bg-[#E8F1FF] flex items-center justify-center mb-3">
+        <Icon size={24} className="text-[#1A56DB]" strokeWidth={2} />
+      </div>
+      <div className="text-sm font-extrabold text-[#1A1F3A]">
+        {hasProducts ? 'Belum ada transaksi hari ini' : 'Mulai kelola warungmu'}
+      </div>
+      <div className="text-xs font-medium text-[#9BA3BC] mt-1 max-w-[260px]">
+        {hasProducts
+          ? 'Catat penjualan pertamamu lewat kasir untuk melihat ringkasannya di sini.'
+          : 'Tambahkan produk terlebih dahulu, lalu catat transaksi penjualanmu.'}
+      </div>
+      <button
+        onClick={onAction}
+        className="mt-4 h-10 px-5 rounded-xl bg-[#1A56DB] text-white text-sm font-bold flex items-center gap-2 active:scale-[0.97] transition-transform"
+        style={{ boxShadow: '0 4px 16px rgba(26,79,214,0.3)' }}
+      >
+        <Icon size={16} strokeWidth={2.5} />
+        {hasProducts ? 'Buka Kasir' : 'Tambah Produk'}
+      </button>
     </div>
   );
 }

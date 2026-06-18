@@ -1,10 +1,8 @@
-import { useRef, useState, type ChangeEvent } from 'react';
 import { useApp } from '@/context/AppContext';
 import type { TabType } from '@/types';
-import { LayoutDashboard, Package, Calculator, Receipt, BarChart3, LogOut, User, Mail, Camera, X } from 'lucide-react';
+import { LayoutDashboard, Package, Calculator, Receipt, BarChart3, Settings } from 'lucide-react';
 import LakuLogo from './LakuLogo';
 import { useIsTablet } from '@/hooks/use-mobile';
-import ModalSheet from './ModalSheet';
 
 const tabs: { key: TabType; label: string; icon: React.ElementType; desc: string }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, desc: 'Ringkasan hari ini' },
@@ -15,47 +13,12 @@ const tabs: { key: TabType; label: string; icon: React.ElementType; desc: string
 ];
 
 export default function SideNav() {
-  const { state, dispatch, logout, showToast, updateUser } = useApp();
+  const { state, dispatch } = useApp();
   const isTablet = useIsTablet();
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [profileName, setProfileName] = useState('');
-  const [profileImage, setProfileImage] = useState('');
-  const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleOpenProfile = () => {
-    setProfileName(state.user?.name || '');
-    setProfileImage(state.user?.image || '');
-    setProfileOpen(true);
-  };
-
-  const handleSaveProfile = () => {
-    if (!profileName.trim()) { showToast('Nama tidak boleh kosong'); return; }
-    updateUser({ name: profileName.trim(), image: profileImage || undefined });
-    showToast('Profil berhasil diperbarui');
-    setProfileOpen(false);
-  };
-
-  const handleProfileFile = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      showToast('Ukuran foto maksimal 2MB');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = ev => setProfileImage(ev.target?.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const handleLogout = () => {
-    setProfileOpen(false);
-    setTimeout(() => { logout(); showToast('Sampai jumpa!'); }, 150);
-  };
-
-
-
+  // Profil & akun dikelola lewat avatar di TopNav dan halaman Pengaturan,
+  // jadi baris pengguna di sidebar ini hanya menampilkan info (tidak diklik).
   return (
-    <>
       <nav
         className={`flex flex-col bg-white border-r border-[#EEF0F6] shrink-0 ${isTablet ? 'w-[72px]' : 'w-[260px]'}`}
         style={{ boxShadow: '4px 0 24px rgba(26,79,214,0.08)', minHeight: '100vh' }}
@@ -126,13 +89,39 @@ export default function SideNav() {
               </button>
             );
           })}
+
+          {/* Separator + Settings */}
+          <div className="mt-auto pt-2">
+            {!isTablet && (
+              <div className="px-3 py-1 mb-1">
+                <span className="text-[9px] font-extrabold text-[#DDE1EF] uppercase tracking-widest">Lainnya</span>
+              </div>
+            )}
+            <button
+              onClick={() => dispatch({ type: 'SET_TAB', payload: 'settings' })}
+              title={isTablet ? 'Pengaturan' : undefined}
+              className={`
+                flex items-center gap-3 rounded-xl transition-all duration-150 w-full
+                ${isTablet ? 'justify-center p-3' : 'px-3 py-2.5'}
+                ${state.activeTab === 'settings'
+                  ? 'bg-[#1A56DB] text-white shadow-md'
+                  : 'text-[#9BA3BC] hover:bg-[#F4F6FD] hover:text-[#1A1F3A]'
+                }
+              `}
+            >
+              <Settings size={isTablet ? 22 : 18} strokeWidth={state.activeTab === 'settings' ? 2.5 : 2} className="shrink-0" />
+              {!isTablet && (
+                <div className="flex-1 text-left">
+                  <div className={`text-sm font-bold leading-tight ${state.activeTab === 'settings' ? 'text-white' : ''}`}>Pengaturan</div>
+                  <div className={`text-[10px] font-medium leading-tight ${state.activeTab === 'settings' ? 'text-white/70' : 'text-[#DDE1EF]'}`}>Konfigurasi toko</div>
+                </div>
+              )}
+            </button>
+          </div>
         </div>
 
-        {/* User avatar — click to open profile modal */}
-        <div
-          className={`p-3 border-t border-[#EEF0F6] flex items-center gap-3 cursor-pointer hover:bg-[#F8F9FC] transition-colors ${isTablet ? 'justify-center' : 'px-4'}`}
-          onClick={handleOpenProfile}
-        >
+        {/* Info pengguna (statis) — kelola profil via TopNav atau Pengaturan */}
+        <div className={`p-3 border-t border-[#EEF0F6] flex items-center gap-3 ${isTablet ? 'justify-center' : 'px-4'}`}>
           <div
             className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 bg-gradient-to-br from-[#60A5FA] to-[#1D4ED8] overflow-hidden"
             style={{ boxShadow: '0 2px 8px rgba(26,86,219,0.28)' }}
@@ -151,78 +140,5 @@ export default function SideNav() {
           )}
         </div>
       </nav>
-
-      {/* Profile Modal */}
-      <ModalSheet open={profileOpen} onClose={() => setProfileOpen(false)} title="Profil Saya">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col items-center gap-2 py-2">
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="relative w-20 h-20 rounded-full bg-gradient-to-br from-[#60A5FA] to-[#1D4ED8] flex items-center justify-center shadow-lg overflow-hidden border-4 border-white active:scale-95 transition-smooth"
-            >
-              {profileImage ? (
-                <img src={profileImage} alt={state.user?.name || 'Profil'} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-2xl font-bold text-white">{state.user?.name?.[0]?.toUpperCase() || 'U'}</span>
-              )}
-              <span className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#1A56DB] border-2 border-white flex items-center justify-center">
-                <Camera size={13} className="text-white" strokeWidth={2.5} />
-              </span>
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleProfileFile} />
-            {profileImage && (
-              <button
-                type="button"
-                onClick={() => setProfileImage('')}
-                className="text-[10px] font-bold text-[#dc2626] flex items-center gap-1"
-              >
-                <X size={11} strokeWidth={2.5} /> Hapus Foto
-              </button>
-            )}
-            <p className="text-xs text-[#9BA3BC]">{state.user?.email}</p>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-[#3D4566]">Nama</label>
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-[#EEF0F6] bg-[#F8F9FC] focus-within:border-[#1A56DB] transition-colors">
-              <User size={17} className="text-[#9BA3BC]" />
-              <input
-                type="text" value={profileName}
-                onChange={e => setProfileName(e.target.value)}
-                className="flex-1 bg-transparent text-sm font-medium text-[#1A1F3A] outline-none"
-                placeholder="Nama toko Anda"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-[#3D4566]">Email</label>
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-[#EEF0F6] bg-[#F8F9FC]">
-              <Mail size={17} className="text-[#9BA3BC]" />
-              <input type="email" value={state.user?.email || ''} disabled
-                className="flex-1 bg-transparent text-sm font-medium text-[#1A1F3A] outline-none opacity-60 cursor-not-allowed" />
-            </div>
-          </div>
-
-          <button
-            onClick={handleSaveProfile}
-            className="w-full h-11 bg-gradient-to-r from-[#1A56DB] to-[#1340b8] text-white font-bold rounded-xl transition-all active:scale-[0.98]"
-          >
-            Simpan Perubahan
-          </button>
-
-          <div className="border-t border-[#EEF0F6] pt-4">
-            <button
-              onClick={handleLogout}
-              className="w-full h-11 bg-[#fee2e2] text-[#ef4444] font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] hover:bg-[#fecaca]"
-            >
-              <LogOut size={16} strokeWidth={2} />
-              Keluar dari Akun
-            </button>
-          </div>
-        </div>
-      </ModalSheet>
-    </>
   );
 }

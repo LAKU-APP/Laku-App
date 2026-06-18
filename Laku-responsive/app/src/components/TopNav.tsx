@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Bell, LogOut, User, Mail, Camera, X } from 'lucide-react';
+import { Bell, User, Mail, Camera, X, Check, AlertTriangle, Info, CheckCircle, XCircle, Settings } from 'lucide-react';
 import ModalSheet from './ModalSheet';
 
 const tabTitles: Record<string, { title: string; subtitle: string }> = {
@@ -9,14 +9,32 @@ const tabTitles: Record<string, { title: string; subtitle: string }> = {
   pos: { title: 'Kasir', subtitle: 'Proses transaksi penjualan' },
   records: { title: 'Catatan', subtitle: 'Riwayat semua transaksi' },
   insights: { title: 'Analisis AI', subtitle: 'Insight cerdas untuk bisnismu' },
+  settings: { title: 'Pengaturan', subtitle: 'Konfigurasi aplikasi' },
+};
+
+const notifIcon = {
+  info: Info,
+  success: CheckCircle,
+  warning: AlertTriangle,
+  error: XCircle,
+};
+
+const notifColor = {
+  info: 'text-[#1A56DB] bg-[#E8F1FF]',
+  success: 'text-[#22c55e] bg-[#dcfce7]',
+  warning: 'text-[#d97706] bg-[#fef3c7]',
+  error: 'text-[#ef4444] bg-[#fee2e2]',
 };
 
 export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
-  const { state, showToast, logout, updateUser } = useApp();
+  const { state, showToast, updateUser, dispatch } = useApp();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [profileName, setProfileName] = useState('');
   const [profileImage, setProfileImage] = useState('');
   const currentTab = tabTitles[state.activeTab] || tabTitles.dashboard;
+
+  const unreadCount = state.notifications.filter(n => !n.read).length;
 
   const handleOpenProfile = () => {
     setProfileName(state.user?.name || '');
@@ -31,9 +49,15 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
     setProfileOpen(false);
   };
 
-  const handleLogout = () => {
+  const handleOpenSettings = () => {
     setProfileOpen(false);
-    setTimeout(() => { logout(); showToast('Sampai jumpa!'); }, 150);
+    dispatch({ type: 'SET_TAB', payload: 'settings' });
+  };
+
+  const handleMarkAllRead = () => {
+    state.notifications.forEach(n => {
+      if (!n.read) dispatch({ type: 'MARK_NOTIFICATION_READ', payload: n.id });
+    });
   };
 
   // Mobile TopNav
@@ -62,9 +86,13 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
             <button
               className="relative rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center active:bg-white/30 transition-all active:scale-95"
               style={{ width: 'clamp(32px, 9vw, 38px)', height: 'clamp(32px, 9vw, 38px)' }}
-              onClick={() => showToast('3 notifikasi baru')}
+              onClick={() => setNotifOpen(true)}
             >
-              <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#F97316] rounded-full border-2 border-white/30 animate-pulse" />
+              {unreadCount > 0 && (
+                <div className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-[#F97316] rounded-full border-2 border-white/30 flex items-center justify-center animate-pulse">
+                  <span className="text-[8px] font-extrabold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                </div>
+              )}
               <Bell size={17} className="text-white" strokeWidth={2} />
             </button>
             <button
@@ -81,6 +109,16 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
           </div>
         </div>
 
+        {/* Notification Modal */}
+        <ModalSheet open={notifOpen} onClose={() => setNotifOpen(false)} title="Notifikasi">
+          <NotificationList
+            notifications={state.notifications}
+            onMarkRead={(id) => dispatch({ type: 'MARK_NOTIFICATION_READ', payload: id })}
+            onMarkAllRead={handleMarkAllRead}
+            onClearAll={() => dispatch({ type: 'CLEAR_NOTIFICATIONS' })}
+          />
+        </ModalSheet>
+
         <ModalSheet open={profileOpen} onClose={() => setProfileOpen(false)} title="Profil Saya">
           <ProfileForm
             profileName={profileName}
@@ -91,7 +129,7 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
             setImage={setProfileImage}
             onImageError={showToast}
             onSave={handleSaveProfile}
-            onLogout={handleLogout}
+            onOpenSettings={handleOpenSettings}
           />
         </ModalSheet>
       </>
@@ -113,9 +151,13 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
         <div className="flex items-center gap-3">
           <button
             className="relative w-9 h-9 rounded-xl bg-[#F4F6FD] flex items-center justify-center hover:bg-[#E8EDF8] transition-colors active:scale-95"
-            onClick={() => showToast('3 notifikasi baru')}
+            onClick={() => setNotifOpen(true)}
           >
-            <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#F97316] rounded-full" />
+            {unreadCount > 0 && (
+              <div className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-[#F97316] rounded-full flex items-center justify-center">
+                <span className="text-[8px] font-extrabold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
+              </div>
+            )}
             <Bell size={16} className="text-[#1A1F3A]" strokeWidth={2} />
           </button>
 
@@ -133,6 +175,16 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
         </div>
       </div>
 
+      {/* Notification Modal */}
+      <ModalSheet open={notifOpen} onClose={() => setNotifOpen(false)} title="Notifikasi">
+        <NotificationList
+          notifications={state.notifications}
+          onMarkRead={(id) => dispatch({ type: 'MARK_NOTIFICATION_READ', payload: id })}
+          onMarkAllRead={handleMarkAllRead}
+          onClearAll={() => dispatch({ type: 'CLEAR_NOTIFICATIONS' })}
+        />
+      </ModalSheet>
+
       <ModalSheet open={profileOpen} onClose={() => setProfileOpen(false)} title="Profil Saya">
         <ProfileForm
           profileName={profileName}
@@ -143,14 +195,84 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
           setImage={setProfileImage}
           onImageError={showToast}
           onSave={handleSaveProfile}
-          onLogout={handleLogout}
+          onOpenSettings={handleOpenSettings}
         />
       </ModalSheet>
     </>
   );
 }
 
-function ProfileForm({ profileName, setProfileName, email, userName, image, setImage, onImageError, onSave, onLogout }: {
+// ---- Notification List Component ----
+function NotificationList({ notifications, onMarkRead, onMarkAllRead, onClearAll }: {
+  notifications: { id: string; title: string; message: string; type: 'info' | 'success' | 'warning' | 'error'; read: boolean; createdAt: string }[];
+  onMarkRead: (id: string) => void;
+  onMarkAllRead: () => void;
+  onClearAll: () => void;
+}) {
+  const unread = notifications.filter(n => !n.read).length;
+
+  if (notifications.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <Bell size={40} className="text-[#DDE1EF] mb-3" strokeWidth={1.5} />
+        <p className="text-sm font-bold text-[#9BA3BC]">Tidak ada notifikasi</p>
+        <p className="text-xs text-[#DDE1EF] mt-1">Notifikasi stok rendah & target akan muncul di sini</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Action buttons */}
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-bold text-[#9BA3BC]">{unread} belum dibaca</span>
+        <div className="flex gap-2">
+          {unread > 0 && (
+            <button onClick={onMarkAllRead} className="text-[10px] font-bold text-[#1A56DB] flex items-center gap-1 active:opacity-70">
+              <Check size={12} /> Tandai semua dibaca
+            </button>
+          )}
+          <button onClick={onClearAll} className="text-[10px] font-bold text-[#ef4444] flex items-center gap-1 active:opacity-70">
+            <X size={12} /> Hapus semua
+          </button>
+        </div>
+      </div>
+
+      {/* Notification items */}
+      {notifications.map(n => {
+        const Icon = notifIcon[n.type];
+        const colorClass = notifColor[n.type];
+        const time = new Date(n.createdAt);
+        const timeStr = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+        return (
+          <button
+            key={n.id}
+            onClick={() => !n.read && onMarkRead(n.id)}
+            className={`w-full text-left flex items-start gap-3 p-3 rounded-xl transition-all active:scale-[0.98] ${
+              n.read ? 'bg-[#F8F9FC] opacity-60' : 'bg-white card-shadow'
+            }`}
+          >
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${colorClass}`}>
+              <Icon size={16} strokeWidth={2.5} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-[#1A1F3A] truncate">{n.title}</span>
+                {!n.read && <div className="w-2 h-2 bg-[#1A56DB] rounded-full shrink-0" />}
+              </div>
+              <p className="text-[11px] text-[#9BA3BC] font-medium mt-0.5 line-clamp-2">{n.message}</p>
+              <span className="text-[9px] text-[#DDE1EF] font-bold mt-1 block">{timeStr}</span>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---- Profile Form Component ----
+// FIX: Camera icon no longer overlaps into the photo — now positioned outside overflow:hidden
+function ProfileForm({ profileName, setProfileName, email, userName, image, setImage, onImageError, onSave, onOpenSettings }: {
   profileName: string;
   setProfileName: (v: string) => void;
   email: string;
@@ -159,7 +281,7 @@ function ProfileForm({ profileName, setProfileName, email, userName, image, setI
   setImage: (v: string) => void;
   onImageError: (message: string) => void;
   onSave: () => void;
-  onLogout: () => void;
+  onOpenSettings?: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -178,20 +300,26 @@ function ProfileForm({ profileName, setProfileName, email, userName, image, setI
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col items-center gap-2 py-2">
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="relative w-20 h-20 rounded-full bg-gradient-to-br from-[#60A5FA] to-[#1D4ED8] flex items-center justify-center shadow-lg overflow-hidden border-4 border-white active:scale-95 transition-smooth"
-        >
-          {image ? (
-            <img src={image} alt={userName || 'Profil'} className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-2xl font-bold text-white">{userName?.[0]?.toUpperCase() || 'U'}</span>
-          )}
-          <span className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#1A56DB] border-2 border-white flex items-center justify-center">
+        {/* Profile photo container — camera icon is OUTSIDE the overflow:hidden circle */}
+        <div className="relative w-20 h-20">
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="w-20 h-20 rounded-full bg-gradient-to-br from-[#60A5FA] to-[#1D4ED8] flex items-center justify-center shadow-lg overflow-hidden border-4 border-white active:scale-95 transition-smooth"
+          >
+            {image ? (
+              <img src={image} alt={userName || 'Profil'} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-2xl font-bold text-white">{userName?.[0]?.toUpperCase() || 'U'}</span>
+            )}
+          </button>
+          {/* Camera badge — positioned outside the overflow:hidden button */}
+          <span
+            className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#1A56DB] border-2 border-white flex items-center justify-center pointer-events-none z-10"
+          >
             <Camera size={13} className="text-white" strokeWidth={2.5} />
           </span>
-        </button>
+        </div>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
         {image && (
           <button
@@ -234,15 +362,15 @@ function ProfileForm({ profileName, setProfileName, email, userName, image, setI
         Simpan Perubahan
       </button>
 
-      <div className="border-t border-[#EEF0F6] pt-4">
+      {onOpenSettings && (
         <button
-          onClick={onLogout}
-          className="w-full h-11 bg-[#fee2e2] text-[#ef4444] font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] hover:bg-[#fecaca]"
+          onClick={onOpenSettings}
+          className="w-full h-11 bg-[#F4F6FD] text-[#1A1F3A] font-bold rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98] hover:bg-[#EEF0F6]"
         >
-          <LogOut size={16} strokeWidth={2} />
-          Keluar dari Akun
+          <Settings size={16} strokeWidth={2} />
+          Buka Pengaturan
         </button>
-      </div>
+      )}
     </div>
   );
 }
