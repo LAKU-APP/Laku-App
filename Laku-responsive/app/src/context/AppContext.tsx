@@ -1,6 +1,22 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
-import type { Product, Transaction, CartItem, TabType, ToastState, Notification } from '@/types';
+import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import type { Product, Transaction, CartItem, TabType, ToastState, Notification, ReceiptSnapshot, StoreSettings } from '@/types';
 import { clearToken } from '@/lib/api';
+import { readStorage, writeStorage, removeStorage } from '@/lib/storage';
+import { calcGrossProfit } from '@/lib/finance';
+import { generateId } from '@/lib/utils';
+
+// Kunci localStorage — dikumpulkan di satu tempat agar tidak ada typo string.
+const STORAGE_KEYS = {
+  user: 'user',
+  dailyTarget: 'dailyTarget',
+  onboarding: 'hasSeenOnboarding',
+  storeSettings: 'storeSettings',
+  categories: 'categories',
+  products: 'products',
+  transactions: 'transactions',
+  receipts: 'receipts',
+  cart: 'cart',
+} as const;
 
 // Helper: generate ISO date string relative to today
 function daysAgo(n: number): string {
@@ -10,31 +26,44 @@ function daysAgo(n: number): string {
   return d.toISOString();
 }
 
+const defaultCategories = ['Makanan', 'Minuman', 'Sembako', 'Bumbu', 'Lainnya'];
+
 const initialProducts: Product[] = [
-  { id: '1', name: 'Nasi Goreng', price: 15000, stock: 50, emoji: '📦', createdAt: daysAgo(7) },
-  { id: '2', name: 'Es Teh', price: 5000, stock: 30, emoji: '📦', createdAt: daysAgo(7) },
-  { id: '3', name: 'Beras 1kg', price: 12000, stock: 100, emoji: '📦', createdAt: daysAgo(7) },
-  { id: '4', name: 'Cabai Merah', price: 8000, stock: 20, emoji: '📦', createdAt: daysAgo(7) },
-  { id: '5', name: 'Telur 1kg', price: 25000, stock: 40, emoji: '📦', createdAt: daysAgo(7) },
-  { id: '6', name: 'Minyak Goreng', price: 15000, stock: 25, emoji: '📦', createdAt: daysAgo(7) },
-  { id: '7', name: 'Mie Goreng', price: 10000, stock: 0, emoji: '📦', createdAt: daysAgo(7) },
-  { id: '8', name: 'Kopi', price: 6000, stock: 60, emoji: '📦', createdAt: daysAgo(7) },
+  { id: '1', name: 'Nasi Goreng', price: 15000, costPrice: 8000, stock: 50, emoji: '📦', category: 'Makanan', createdAt: daysAgo(7) },
+  { id: '2', name: 'Es Teh', price: 5000, costPrice: 2000, stock: 30, emoji: '📦', category: 'Minuman', createdAt: daysAgo(7) },
+  { id: '3', name: 'Beras 1kg', price: 12000, costPrice: 10000, stock: 100, emoji: '📦', category: 'Sembako', createdAt: daysAgo(7) },
+  { id: '4', name: 'Cabai Merah', price: 8000, costPrice: 5000, stock: 20, emoji: '📦', category: 'Bumbu', createdAt: daysAgo(7) },
+  { id: '5', name: 'Telur 1kg', price: 25000, costPrice: 20000, stock: 40, emoji: '📦', category: 'Sembako', createdAt: daysAgo(7) },
+  { id: '6', name: 'Minyak Goreng', price: 15000, costPrice: 12000, stock: 25, emoji: '📦', category: 'Sembako', createdAt: daysAgo(7) },
+  { id: '7', name: 'Mie Goreng', price: 10000, costPrice: 5500, stock: 0, emoji: '📦', category: 'Makanan', createdAt: daysAgo(7) },
+  { id: '8', name: 'Kopi', price: 6000, costPrice: 3000, stock: 60, emoji: '📦', category: 'Minuman', createdAt: daysAgo(7) },
 ];
 
 const initialTransactions: Transaction[] = [
-  { id: '1', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 3, totalPrice: 45000, note: 'Penjualan: 3x Nasi Goreng', createdAt: daysAgo(0) },
-  { id: '2', productId: '2', productName: 'Es Teh', type: 'OUT', qty: 2, totalPrice: 10000, note: 'Penjualan: 2x Es Teh', createdAt: daysAgo(0) },
+  { id: '1', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 3, totalPrice: 45000, note: 'Penjualan: 3x Nasi Goreng', paymentMethod: 'cash', createdAt: daysAgo(0) },
+  { id: '2', productId: '2', productName: 'Es Teh', type: 'OUT', qty: 2, totalPrice: 10000, note: 'Penjualan: 2x Es Teh', paymentMethod: 'cash', createdAt: daysAgo(0) },
   { id: '3', productId: '3', productName: 'Beras 1kg', type: 'IN', qty: 10, totalPrice: 120000, note: 'Pembelian: 10kg Beras', createdAt: daysAgo(0) },
-  { id: '4', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 2, totalPrice: 30000, note: 'Penjualan: 2x Nasi Goreng', createdAt: daysAgo(0) },
-  { id: '5', productId: '4', productName: 'Cabai Merah', type: 'OUT', qty: 5, totalPrice: 40000, note: 'Penjualan: 5x Cabai Merah', createdAt: daysAgo(1) },
+  { id: '4', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 2, totalPrice: 30000, note: 'Penjualan: 2x Nasi Goreng', paymentMethod: 'qris', createdAt: daysAgo(0) },
+  { id: '5', productId: '4', productName: 'Cabai Merah', type: 'OUT', qty: 5, totalPrice: 40000, note: 'Penjualan: 5x Cabai Merah', paymentMethod: 'cash', createdAt: daysAgo(1) },
   { id: '6', productId: '5', productName: 'Telur 1kg', type: 'IN', qty: 5, totalPrice: 125000, note: 'Pembelian: 5kg Telur', createdAt: daysAgo(1) },
   { id: '7', productId: '6', productName: 'Minyak Goreng', type: 'IN', qty: 4, totalPrice: 60000, note: 'Pembelian: 4L Minyak Goreng', createdAt: daysAgo(2) },
-  { id: '8', productId: '3', productName: 'Beras 1kg', type: 'OUT', qty: 8, totalPrice: 96000, note: 'Penjualan: 8kg Beras', createdAt: daysAgo(2) },
-  { id: '9', productId: '8', productName: 'Kopi', type: 'OUT', qty: 10, totalPrice: 60000, note: 'Penjualan: 10x Kopi', createdAt: daysAgo(3) },
-  { id: '10', productId: '2', productName: 'Es Teh', type: 'OUT', qty: 5, totalPrice: 25000, note: 'Penjualan: 5x Es Teh', createdAt: daysAgo(4) },
-  { id: '11', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 4, totalPrice: 60000, note: 'Penjualan: 4x Nasi Goreng', createdAt: daysAgo(5) },
-  { id: '12', productId: '8', productName: 'Kopi', type: 'OUT', qty: 6, totalPrice: 36000, note: 'Penjualan: 6x Kopi', createdAt: daysAgo(6) },
+  { id: '8', productId: '3', productName: 'Beras 1kg', type: 'OUT', qty: 8, totalPrice: 96000, note: 'Penjualan: 8kg Beras', paymentMethod: 'transfer', createdAt: daysAgo(2) },
+  { id: '9', productId: '8', productName: 'Kopi', type: 'OUT', qty: 10, totalPrice: 60000, note: 'Penjualan: 10x Kopi', paymentMethod: 'cash', createdAt: daysAgo(3) },
+  { id: '10', productId: '2', productName: 'Es Teh', type: 'OUT', qty: 5, totalPrice: 25000, note: 'Penjualan: 5x Es Teh', paymentMethod: 'cash', createdAt: daysAgo(4) },
+  { id: '11', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 4, totalPrice: 60000, note: 'Penjualan: 4x Nasi Goreng', paymentMethod: 'qris', createdAt: daysAgo(5) },
+  { id: '12', productId: '8', productName: 'Kopi', type: 'OUT', qty: 6, totalPrice: 36000, note: 'Penjualan: 6x Kopi', paymentMethod: 'cash', createdAt: daysAgo(6) },
 ];
+
+const defaultStoreSettings: StoreSettings = {
+  storeName: '',
+  storeAddress: '',
+  storePhone: '',
+  receiptNote: 'Terima kasih telah berbelanja',
+  initialCash: 1000000,
+  lowStockThreshold: 5,
+  currency: 'IDR',
+  darkMode: false,
+};
 
 interface AppState {
   products: Product[];
@@ -46,6 +75,9 @@ interface AppState {
   dailyTarget: number;
   notifications: Notification[];
   hasSeenOnboarding: boolean;
+  receipts: ReceiptSnapshot[];
+  storeSettings: StoreSettings;
+  categories: string[];
 }
 
 type AppAction =
@@ -67,7 +99,13 @@ type AppAction =
   | { type: 'MARK_NOTIFICATION_READ'; payload: string }
   | { type: 'CLEAR_NOTIFICATIONS' }
   | { type: 'SET_ONBOARDING_COMPLETE' }
-  | { type: 'LOGOUT' };
+  | { type: 'RESET_ONBOARDING' }
+  | { type: 'LOGOUT' }
+  | { type: 'ADD_RECEIPT'; payload: ReceiptSnapshot }
+  | { type: 'UPDATE_STORE_SETTINGS'; payload: Partial<StoreSettings> }
+  | { type: 'ADD_CATEGORY'; payload: string }
+  | { type: 'REMOVE_CATEGORY'; payload: string }
+  | { type: 'RESET_DATA'; payload: 'demo' | 'empty' };
 
 const initialState: AppState = {
   products: initialProducts,
@@ -79,11 +117,10 @@ const initialState: AppState = {
   dailyTarget: 300000,
   notifications: [],
   hasSeenOnboarding: false,
+  receipts: [],
+  storeSettings: defaultStoreSettings,
+  categories: defaultCategories,
 };
-
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-}
 
 function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
@@ -150,8 +187,28 @@ function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, notifications: [] };
     case 'SET_ONBOARDING_COMPLETE':
       return { ...state, hasSeenOnboarding: true };
+    case 'RESET_ONBOARDING':
+      return { ...state, hasSeenOnboarding: false };
     case 'LOGOUT':
       return { ...state, user: null };
+    case 'ADD_RECEIPT':
+      return { ...state, receipts: [action.payload, ...state.receipts] };
+    case 'UPDATE_STORE_SETTINGS':
+      return { ...state, storeSettings: { ...state.storeSettings, ...action.payload } };
+    case 'ADD_CATEGORY': {
+      if (state.categories.includes(action.payload)) return state;
+      return { ...state, categories: [...state.categories, action.payload] };
+    }
+    case 'REMOVE_CATEGORY':
+      return { ...state, categories: state.categories.filter(c => c !== action.payload) };
+    case 'RESET_DATA':
+      return {
+        ...state,
+        products: action.payload === 'demo' ? initialProducts : [],
+        transactions: action.payload === 'demo' ? initialTransactions : [],
+        receipts: [],
+        cart: [],
+      };
     default:
       return state;
   }
@@ -167,23 +224,106 @@ interface AppContextType {
   setDailyTarget: (target: number) => void;
   addNotification: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
   completeOnboarding: () => void;
+  restartOnboarding: () => void;
+  addReceipt: (receipt: ReceiptSnapshot) => void;
+  updateStoreSettings: (settings: Partial<StoreSettings>) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(appReducer, initialState, (init) => {
-    try {
-      const raw = localStorage.getItem('user');
-      const user = raw ? JSON.parse(raw) : null;
-      const savedTarget = localStorage.getItem('dailyTarget');
-      const dailyTarget = savedTarget ? parseInt(savedTarget) : 300000;
-      const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding') === 'true';
-      return { ...init, user, dailyTarget, hasSeenOnboarding };
-    } catch {
-      return { ...init, user: null };
+  const [state, dispatch] = useReducer(appReducer, initialState, (init): AppState => ({
+    ...init,
+    // Data inti dipulihkan dari localStorage; data contoh hanya tampil saat
+    // pertama kali aplikasi dibuka (belum ada apa pun tersimpan).
+    user: readStorage<AppState['user']>(STORAGE_KEYS.user, null),
+    dailyTarget: readStorage(STORAGE_KEYS.dailyTarget, init.dailyTarget),
+    hasSeenOnboarding: readStorage(STORAGE_KEYS.onboarding, false),
+    storeSettings: { ...defaultStoreSettings, ...readStorage(STORAGE_KEYS.storeSettings, {}) },
+    categories: readStorage(STORAGE_KEYS.categories, defaultCategories),
+    products: readStorage(STORAGE_KEYS.products, initialProducts),
+    transactions: readStorage(STORAGE_KEYS.transactions, initialTransactions),
+    receipts: readStorage(STORAGE_KEYS.receipts, []),
+    cart: readStorage(STORAGE_KEYS.cart, []),
+  }));
+
+  // Simpan otomatis setiap slice data yang berubah. Dipisah per-key agar hanya
+  // data yang benar-benar berubah yang ditulis ulang ke localStorage.
+  useEffect(() => { writeStorage(STORAGE_KEYS.products, state.products); }, [state.products]);
+  useEffect(() => { writeStorage(STORAGE_KEYS.transactions, state.transactions); }, [state.transactions]);
+  useEffect(() => { writeStorage(STORAGE_KEYS.receipts, state.receipts); }, [state.receipts]);
+  useEffect(() => { writeStorage(STORAGE_KEYS.cart, state.cart); }, [state.cart]);
+  useEffect(() => { writeStorage(STORAGE_KEYS.categories, state.categories); }, [state.categories]);
+
+  // Auto-generate notifications for low stock items
+  useEffect(() => {
+    const threshold = state.storeSettings.lowStockThreshold;
+    const lowStockItems = state.products.filter(p => p.stock > 0 && p.stock <= threshold);
+    const outOfStockItems = state.products.filter(p => p.stock === 0);
+
+    // Only generate if user is logged in and we haven't notified recently
+    if (!state.user) return;
+
+    outOfStockItems.forEach(p => {
+      const exists = state.notifications.some(n => n.title === `Stok Habis: ${p.name}` && !n.read);
+      if (!exists) {
+        const notification: Notification = {
+          id: generateId(),
+          title: `Stok Habis: ${p.name}`,
+          message: `${p.name} sudah habis! Segera restok.`,
+          type: 'error',
+          read: false,
+          createdAt: new Date().toISOString(),
+        };
+        dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
+      }
+    });
+
+    lowStockItems.forEach(p => {
+      const exists = state.notifications.some(n => n.title === `Stok Rendah: ${p.name}` && !n.read);
+      if (!exists) {
+        const notification: Notification = {
+          id: generateId(),
+          title: `Stok Rendah: ${p.name}`,
+          message: `${p.name} tinggal ${p.stock} unit. Pertimbangkan untuk restok.`,
+          type: 'warning',
+          read: false,
+          createdAt: new Date().toISOString(),
+        };
+        dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
+      }
+    });
+
+    // Cek apakah target laba harian sudah tercapai (laba kotor hari ini).
+    const today = new Date().toISOString().split('T')[0];
+    const todayTransactions = state.transactions.filter(t => t.createdAt.startsWith(today));
+    const todayProfit = calcGrossProfit(todayTransactions, state.products);
+
+    if (todayProfit >= state.dailyTarget && state.dailyTarget > 0) {
+      const exists = state.notifications.some(n => n.title === 'Target Tercapai! 🎉' && n.createdAt.startsWith(today));
+      if (!exists) {
+        const notification: Notification = {
+          id: generateId(),
+          title: 'Target Tercapai! 🎉',
+          message: `Selamat! Target harian Rp ${state.dailyTarget.toLocaleString('id-ID')} telah tercapai.`,
+          type: 'success',
+          read: false,
+          createdAt: new Date().toISOString(),
+        };
+        dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
+      }
     }
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.products, state.transactions, state.user, state.dailyTarget, state.storeSettings.lowStockThreshold]);
+
+  // Apply dark mode
+  useEffect(() => {
+    if (state.storeSettings.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [state.storeSettings.darkMode]);
 
   const showToast = useCallback((message: string) => {
     dispatch({ type: 'SHOW_TOAST', payload: message });
@@ -191,33 +331,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback((user: { id: string; name: string; email: string; image?: string }) => {
-    try { localStorage.setItem('user', JSON.stringify(user)); } catch {
-      // localStorage may be unavailable in restricted browser contexts.
-    }
+    writeStorage(STORAGE_KEYS.user, user);
     dispatch({ type: 'SET_USER', payload: user });
   }, []);
 
   const logout = useCallback(() => {
-    try { localStorage.removeItem('user'); } catch {
-      // localStorage may be unavailable in restricted browser contexts.
-    }
+    removeStorage(STORAGE_KEYS.user);
     clearToken();
     dispatch({ type: 'LOGOUT' });
   }, []);
 
   const updateUser = useCallback((updates: { name?: string; email?: string; image?: string }) => {
     if (!state.user) return;
-    const updatedUser = { ...state.user, ...updates };
-    try { localStorage.setItem('user', JSON.stringify(updatedUser)); } catch {
-      // localStorage may be unavailable in restricted browser contexts.
-    }
+    writeStorage(STORAGE_KEYS.user, { ...state.user, ...updates });
     dispatch({ type: 'UPDATE_USER', payload: updates });
   }, [state.user]);
 
   const setDailyTarget = useCallback((target: number) => {
-    try { localStorage.setItem('dailyTarget', String(target)); } catch {
-      // localStorage may be unavailable in restricted browser contexts.
-    }
+    writeStorage(STORAGE_KEYS.dailyTarget, target);
     dispatch({ type: 'SET_DAILY_TARGET', payload: target });
   }, []);
 
@@ -234,14 +365,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const completeOnboarding = useCallback(() => {
-    try { localStorage.setItem('hasSeenOnboarding', 'true'); } catch {
-      // localStorage may be unavailable in restricted browser contexts.
-    }
+    writeStorage(STORAGE_KEYS.onboarding, true);
     dispatch({ type: 'SET_ONBOARDING_COMPLETE' });
   }, []);
 
+  // Tampilkan ulang langkah-langkah pengenalan (dipakai saat masuk mode demo).
+  const restartOnboarding = useCallback(() => {
+    removeStorage(STORAGE_KEYS.onboarding);
+    dispatch({ type: 'RESET_ONBOARDING' });
+  }, []);
+
+  const addReceipt = useCallback((receipt: ReceiptSnapshot) => {
+    dispatch({ type: 'ADD_RECEIPT', payload: receipt });
+  }, []);
+
+  const updateStoreSettings = useCallback((settings: Partial<StoreSettings>) => {
+    writeStorage(STORAGE_KEYS.storeSettings, { ...state.storeSettings, ...settings });
+    dispatch({ type: 'UPDATE_STORE_SETTINGS', payload: settings });
+  }, [state.storeSettings]);
+
   return (
-    <AppContext.Provider value={{ state, dispatch, showToast, login, logout, updateUser, setDailyTarget, addNotification, completeOnboarding }}>
+    <AppContext.Provider value={{ state, dispatch, showToast, login, logout, updateUser, setDailyTarget, addNotification, completeOnboarding, restartOnboarding, addReceipt, updateStoreSettings }}>
       {children}
     </AppContext.Provider>
   );

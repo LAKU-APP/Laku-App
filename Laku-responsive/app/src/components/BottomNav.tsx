@@ -1,13 +1,13 @@
 import { useApp } from '@/context/AppContext';
 import type { TabType } from '@/types';
-import { LayoutDashboard, Package, Calculator, Receipt, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Package, Calculator, Receipt, Sparkles } from 'lucide-react';
 
 const tabs: { key: TabType; label: string; icon: React.ElementType }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'products', label: 'Stok', icon: Package },
   { key: 'pos', label: 'Kasir', icon: Calculator },
   { key: 'records', label: 'Catatan', icon: Receipt },
-  { key: 'insights', label: 'Analisis', icon: BarChart3 },
+  { key: 'insights', label: 'Insight', icon: Sparkles },
 ];
 
 export default function BottomNav() {

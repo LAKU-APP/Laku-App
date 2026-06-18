@@ -8,6 +8,7 @@ import Products from '@/pages/Products';
 import POS from '@/pages/POS';
 import Records from '@/pages/Records';
 import Insights from '@/pages/Insights';
+import Settings from '@/pages/Settings';
 import Login from '@/pages/Login';
 import Onboarding from '@/components/Onboarding';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -32,6 +33,7 @@ function AppContent() {
       case 'pos': return <POS />;
       case 'records': return <Records />;
       case 'insights': return <Insights />;
+      case 'settings': return <Settings />;
       default: return <Dashboard />;
     }
   };

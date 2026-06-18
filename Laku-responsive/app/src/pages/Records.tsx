@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
-import { ShoppingBag, Truck, Receipt, Calendar, Download, FileText } from 'lucide-react';
+import { ShoppingBag, Truck, Receipt, Calendar, Download, FileText, Search } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { calcRevenue, calcExpense, calcGrossProfit } from '@/lib/finance';
 
 type TimeFilter = 'today' | 'yesterday' | '7days' | '30days';
+type TypeFilter = 'all' | 'OUT' | 'IN';
 
 function csvCell(value: string | number | undefined) {
   const text = String(value ?? '');
@@ -26,6 +28,8 @@ export default function Records() {
   const { state } = useApp();
   const isMobile = useIsMobile();
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const filteredTransactions = useMemo(() => {
     const now = new Date();
@@ -33,28 +37,45 @@ export default function Records() {
     const nowMs = now.getTime();
     const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
-    switch (timeFilter) {
-      case 'today': return state.transactions.filter(t => t.createdAt.startsWith(today));
-      case 'yesterday': return state.transactions.filter(t => t.createdAt.startsWith(yesterdayStr));
-      case '7days': return state.transactions.filter(t => new Date(t.createdAt).getTime() >= nowMs - 7 * 24 * 60 * 60 * 1000);
-      case '30days': return state.transactions.filter(t => new Date(t.createdAt).getTime() >= nowMs - 30 * 24 * 60 * 60 * 1000);
-      default: return state.transactions;
-    }
-  }, [state.transactions, timeFilter]);
 
-  const stats = useMemo(() => {
-    const revenue = filteredTransactions.filter(t => t.type === 'OUT').reduce((sum, t) => sum + t.totalPrice, 0);
-    const expense = filteredTransactions.filter(t => t.type === 'IN').reduce((sum, t) => sum + Math.abs(t.totalPrice), 0);
-    const profit = revenue - expense * 0.2;
-    const transactionCount = filteredTransactions.length;
-    return { revenue, expense, profit, transactionCount };
-  }, [filteredTransactions]);
+    const matchesTime = (createdAt: string) => {
+      switch (timeFilter) {
+        case 'today': return createdAt.startsWith(today);
+        case 'yesterday': return createdAt.startsWith(yesterdayStr);
+        case '7days': return new Date(createdAt).getTime() >= nowMs - 7 * 24 * 60 * 60 * 1000;
+        case '30days': return new Date(createdAt).getTime() >= nowMs - 30 * 24 * 60 * 60 * 1000;
+        default: return true;
+      }
+    };
+
+    const query = searchQuery.trim().toLowerCase();
+    return state.transactions.filter(t =>
+      matchesTime(t.createdAt) &&
+      (typeFilter === 'all' || t.type === typeFilter) &&
+      (query === '' ||
+        t.productName.toLowerCase().includes(query) ||
+        (t.note?.toLowerCase().includes(query) ?? false))
+    );
+  }, [state.transactions, timeFilter, typeFilter, searchQuery]);
+
+  const stats = useMemo(() => ({
+    revenue: calcRevenue(filteredTransactions),
+    expense: calcExpense(filteredTransactions),
+    profit: calcGrossProfit(filteredTransactions, state.products),
+    transactionCount: filteredTransactions.length,
+  }), [filteredTransactions, state.products]);
 
   const filters: { key: TimeFilter; label: string }[] = [
     { key: 'today', label: 'Hari Ini' },
     { key: 'yesterday', label: 'Kemarin' },
     { key: '7days', label: '7 Hari' },
     { key: '30days', label: '30 Hari' },
+  ];
+
+  const typeFilters: { key: TypeFilter; label: string }[] = [
+    { key: 'all', label: 'Semua' },
+    { key: 'OUT', label: 'Jual' },
+    { key: 'IN', label: 'Beli' },
   ];
 
   const formatDate = (dateStr: string) =>
@@ -208,28 +229,55 @@ export default function Records() {
         </div>
 
         {/* Summary Cards */}
-        <div className={`grid gap-2.5 ${isMobile ? 'grid-cols-3' : 'grid-cols-3 flex-1'}`}>
-          <div className="bg-white rounded-xl p-3 card-shadow animate-fade-up animate-delay-1">
+        <div className={`grid gap-2.5 auto-rows-fr ${isMobile ? 'grid-cols-3' : 'grid-cols-3 flex-1'}`}>
+          <div className="bg-white rounded-xl p-3 h-full card-shadow animate-fade-up animate-delay-1">
             <div className="text-[10px] font-bold text-[#9BA3BC] mb-1">Omzet</div>
             <div className={`font-extrabold text-[#1A1F3A] ${isMobile ? 'text-sm' : 'text-base'}`}>
               {isMobile ? `Rp ${(stats.revenue / 1000).toFixed(0)}k` : `Rp ${stats.revenue.toLocaleString('id-ID')}`}
             </div>
             <ShoppingBag size={14} className="text-[#1A56DB] mt-1" />
           </div>
-          <div className="bg-white rounded-xl p-3 card-shadow animate-fade-up animate-delay-2">
+          <div className="bg-white rounded-xl p-3 h-full card-shadow animate-fade-up animate-delay-2">
             <div className="text-[10px] font-bold text-[#9BA3BC] mb-1">Biaya</div>
             <div className={`font-extrabold text-[#1A1F3A] ${isMobile ? 'text-sm' : 'text-base'}`}>
               {isMobile ? `Rp ${(stats.expense / 1000).toFixed(0)}k` : `Rp ${stats.expense.toLocaleString('id-ID')}`}
             </div>
             <Truck size={14} className="text-[#F97316] mt-1" />
           </div>
-          <div className="bg-white rounded-xl p-3 card-shadow animate-fade-up animate-delay-3">
+          <div className="bg-white rounded-xl p-3 h-full card-shadow animate-fade-up animate-delay-3">
             <div className="text-[10px] font-bold text-[#9BA3BC] mb-1">Laba</div>
             <div className={`font-extrabold ${isMobile ? 'text-sm' : 'text-base'} ${stats.profit >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
               {isMobile ? `Rp ${(stats.profit / 1000).toFixed(0)}k` : `Rp ${stats.profit.toLocaleString('id-ID')}`}
             </div>
             <Receipt size={14} className="text-[#1A56DB] mt-1" />
           </div>
+        </div>
+      </div>
+
+      {/* Search + Type filter */}
+      <div className={`flex gap-3 ${isMobile ? 'flex-col' : 'items-center'}`}>
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9BA3BC]" />
+          <input
+            type="text"
+            placeholder="Cari nama produk atau catatan..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full h-11 pl-9 pr-4 bg-white rounded-xl text-sm font-medium text-[#1A1F3A]
+                       placeholder:text-[#9BA3BC] outline-none focus:ring-2 focus:ring-[#1A56DB]/30 card-shadow transition-shadow"
+          />
+        </div>
+        <div className={`flex gap-1.5 bg-white rounded-xl p-1.5 card-shadow ${isMobile ? 'w-full' : 'shrink-0'}`}>
+          {typeFilters.map(f => (
+            <button
+              key={f.key}
+              onClick={() => setTypeFilter(f.key)}
+              className={`${isMobile ? 'flex-1' : 'px-4'} h-9 rounded-lg text-xs font-bold transition-all
+                ${typeFilter === f.key ? 'bg-[#1A56DB] text-white' : 'text-[#9BA3BC] hover:bg-[#F8F9FC]'}`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -320,8 +368,12 @@ export default function Records() {
         {grouped.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Receipt size={48} className="text-[#DDE1EF] mb-3" />
-            <p className="text-sm font-bold text-[#9BA3BC]">Belum ada transaksi</p>
-            <p className="text-xs text-[#DDE1EF] mt-1">Transaksi akan muncul di sini</p>
+            <p className="text-sm font-bold text-[#9BA3BC]">
+              {searchQuery.trim() || typeFilter !== 'all' ? 'Tidak ada transaksi yang cocok' : 'Belum ada transaksi'}
+            </p>
+            <p className="text-xs text-[#DDE1EF] mt-1">
+              {searchQuery.trim() || typeFilter !== 'all' ? 'Coba ubah kata kunci atau filter' : 'Transaksi akan muncul di sini'}
+            </p>
           </div>
         )}
       </div>

@@ -1,21 +1,24 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Search, Plus, Minus, ShoppingCart, Trash2, Package, Printer, Receipt } from 'lucide-react';
+import { Search, Plus, Minus, ShoppingCart, Trash2, Package, Printer, Receipt, History, Wallet, Landmark, QrCode } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import ModalSheet from '@/components/ModalSheet';
+import type { ReceiptSnapshot, Transaction } from '@/types';
+import { formatRupiah } from '@/lib/finance';
+import { generateId } from '@/lib/utils';
 
-type ReceiptItem = {
-  productId: string;
-  productName: string;
-  price: number;
-  qty: number;
-};
+type PaymentMethod = NonNullable<Transaction['paymentMethod']>;
 
-type ReceiptSnapshot = {
-  id: string;
-  storeName: string;
-  createdAt: string;
-  items: ReceiptItem[];
-  total: number;
+const paymentMethods: { key: PaymentMethod; label: string; icon: typeof Wallet }[] = [
+  { key: 'cash', label: 'Tunai', icon: Wallet },
+  { key: 'transfer', label: 'Transfer', icon: Landmark },
+  { key: 'qris', label: 'QRIS', icon: QrCode },
+];
+
+const paymentLabel: Record<PaymentMethod, string> = {
+  cash: 'Tunai',
+  transfer: 'Transfer',
+  qris: 'QRIS',
 };
 
 function escapeHtml(value: string) {
@@ -28,12 +31,18 @@ function escapeHtml(value: string) {
 }
 
 export default function POS() {
-  const { state, dispatch, showToast } = useApp();
+  const { state, dispatch, showToast, addReceipt } = useApp();
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [lastReceipt, setLastReceipt] = useState<ReceiptSnapshot | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Checkout: diskon (nominal), metode bayar, dan uang dibayar (untuk tunai).
+  const [discountInput, setDiscountInput] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [cashPaidInput, setCashPaidInput] = useState('');
 
   const filteredProducts = useMemo(() => {
     const prods = state.products.filter(p => p.stock > 0);
@@ -41,8 +50,12 @@ export default function POS() {
     return prods.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [state.products, searchQuery]);
 
-  const cartTotal = state.cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const cartCount = state.cart.reduce((sum, item) => sum + item.qty, 0);
+  const grossTotal = state.cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const discount = Math.min(Math.max(parseInt(discountInput || '0', 10) || 0, 0), grossTotal);
+  const netTotal = grossTotal - discount;
+  const cashPaid = parseInt(cashPaidInput || '0', 10) || 0;
+  const change = paymentMethod === 'cash' ? cashPaid - netTotal : 0;
 
   const handleProductClick = (product: { id: string; name: string; price: number; stock: number }) => {
     const cartItem = state.cart.find(c => c.productId === product.id);
@@ -68,6 +81,12 @@ export default function POS() {
       }
     }
 
+    // Untuk pembayaran tunai, uang yang dibayar harus menutupi total.
+    if (paymentMethod === 'cash' && cashPaidInput.trim() !== '' && cashPaid < netTotal) {
+      showToast('Uang dibayar kurang dari total belanja');
+      return;
+    }
+
     setProcessing(true);
     const receiptId = `TRX-${Date.now().toString(36).toUpperCase()}`;
     const receiptItems = state.cart.map(item => ({
@@ -76,40 +95,64 @@ export default function POS() {
       price: item.price,
       qty: item.qty,
     }));
-    const receiptTotal = receiptItems.reduce((sum, item) => sum + item.price * item.qty, 0);
     const receiptCreatedAt = new Date().toISOString();
+
+    // Sebar diskon proporsional ke tiap baris agar total transaksi tercatat = total
+    // bersih. Sisa pembulatan dibebankan ke baris terakhir supaya jumlahnya pas.
+    let allocatedNet = 0;
+    const lineNetTotals = receiptItems.map((item, idx) => {
+      const lineGross = item.price * item.qty;
+      if (idx === receiptItems.length - 1) return netTotal - allocatedNet;
+      const lineNet = grossTotal > 0 ? Math.round((lineGross / grossTotal) * netTotal) : 0;
+      allocatedNet += lineNet;
+      return lineNet;
+    });
+
+    const capturedPaymentMethod = paymentMethod;
+    const capturedCashPaid = paymentMethod === 'cash' && cashPaidInput.trim() !== '' ? cashPaid : undefined;
+    const capturedChange = capturedCashPaid !== undefined ? capturedCashPaid - netTotal : undefined;
 
     setTimeout(() => {
       const note = `Penjualan: ${receiptItems.map(i => `${i.qty}x ${i.productName}`).join(', ')}`;
-      receiptItems.forEach(item => {
+      receiptItems.forEach((item, idx) => {
         const product = state.products.find(p => p.id === item.productId);
         if (!product) return;
-        // ADD_TRANSACTION for the sale record
+        const lineGross = item.price * item.qty;
+        const lineNet = lineNetTotals[idx];
         dispatch({
           type: 'ADD_TRANSACTION', payload: {
-            id: Math.random().toString(36).substring(2, 15) + Date.now().toString(36),
+            id: generateId(),
             productId: product.id, productName: item.productName, type: 'OUT' as const,
-            qty: item.qty, totalPrice: item.price * item.qty,
+            qty: item.qty, totalPrice: lineNet,
+            discount: lineGross - lineNet,
+            paymentMethod: capturedPaymentMethod,
             note,
             createdAt: receiptCreatedAt,
           }
         });
-        // Only update stock (without creating another transaction)
-        dispatch({ type: 'UPDATE_PRODUCT', payload: {
-          ...product,
-          stock: product.stock - item.qty,
-        }});
+        // Update stok saja (transaksi penjualan sudah dicatat di atas).
+        dispatch({ type: 'UPDATE_PRODUCT', payload: { ...product, stock: product.stock - item.qty } });
       });
-      dispatch({ type: 'CLEAR_CART' });
-      setLastReceipt({
+
+      const receipt: ReceiptSnapshot = {
         id: receiptId,
-        storeName: state.user?.name || 'LAKU',
+        storeName: state.storeSettings.storeName || state.user?.name || 'LAKU',
         createdAt: receiptCreatedAt,
         items: receiptItems,
-        total: receiptTotal,
-      });
+        total: netTotal,
+        discount: discount > 0 ? discount : undefined,
+        paymentMethod: capturedPaymentMethod,
+        cashPaid: capturedCashPaid,
+        change: capturedChange,
+      };
+
+      dispatch({ type: 'CLEAR_CART' });
+      addReceipt(receipt);
+      setLastReceipt(receipt);
+      setDiscountInput('');
+      setCashPaidInput('');
       setProcessing(false);
-      showToast(`Transaksi berhasil! Total: Rp ${receiptTotal.toLocaleString('id-ID')}`);
+      showToast(`Transaksi berhasil! Total: ${formatRupiah(netTotal)}`);
     }, 800);
   };
 
@@ -124,6 +167,22 @@ export default function POS() {
         <td class="right">Rp ${(item.price * item.qty).toLocaleString('id-ID')}</td>
       </tr>
     `).join('');
+
+    // Baris ringkasan pembayaran — hanya tampil bila datanya ada.
+    const grossSubtotal = receipt.items.reduce((sum, item) => sum + item.price * item.qty, 0);
+    const summaryRows = [
+      receipt.discount ? ['Subtotal', `Rp ${grossSubtotal.toLocaleString('id-ID')}`] : null,
+      receipt.discount ? ['Diskon', `- Rp ${receipt.discount.toLocaleString('id-ID')}`] : null,
+      receipt.paymentMethod ? ['Metode', paymentLabel[receipt.paymentMethod]] : null,
+      receipt.cashPaid != null ? ['Tunai', `Rp ${receipt.cashPaid.toLocaleString('id-ID')}`] : null,
+      receipt.change != null ? ['Kembalian', `Rp ${receipt.change.toLocaleString('id-ID')}`] : null,
+    ]
+      .filter((row): row is [string, string] => row !== null)
+      .map(([label, value]) => `<div class="meta"><span>${escapeHtml(label)}</span><span>${escapeHtml(value)}</span></div>`)
+      .join('');
+    const address = state.storeSettings.storeAddress.trim();
+    const phone = state.storeSettings.storePhone.trim();
+    const footerNote = state.storeSettings.receiptNote.trim() || 'Terima kasih';
     const printWindow = window.open('', '_blank', 'width=420,height=640');
     if (!printWindow) {
       showToast('Popup print diblokir browser');
@@ -145,6 +204,7 @@ export default function POS() {
             td { padding: 5px 0; vertical-align: top; }
             td span { color: #6b7280; }
             .right { text-align: right; white-space: nowrap; }
+            .meta { display: flex; justify-content: space-between; font-size: 11px; color: #4b5563; padding: 3px 0; }
             .total { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 800; }
             .footer { text-align: center; font-size: 10px; color: #6b7280; line-height: 1.5; }
             @media print {
@@ -157,6 +217,8 @@ export default function POS() {
           <div class="receipt">
             <h1>${escapeHtml(receipt.storeName)}</h1>
             <div class="sub">
+              ${address ? `${escapeHtml(address)}<br />` : ''}
+              ${phone ? `Telp. ${escapeHtml(phone)}<br />` : ''}
               ${escapeHtml(receipt.id)}<br />
               ${issuedAt.toLocaleDateString('id-ID')} ${issuedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
             </div>
@@ -167,9 +229,10 @@ export default function POS() {
               <span>Total</span>
               <span>Rp ${receipt.total.toLocaleString('id-ID')}</span>
             </div>
+            ${summaryRows ? `<div class="line"></div>${summaryRows}` : ''}
             <div class="line"></div>
             <div class="footer">
-              Terima kasih<br />
+              ${escapeHtml(footerNote)}<br />
               Dicetak melalui LAKU
             </div>
           </div>
@@ -249,12 +312,18 @@ export default function POS() {
             <span className="text-[10px] font-bold text-white bg-[#1A56DB] px-1.5 py-0.5 rounded-full">{cartCount}</span>
           )}
         </div>
-        {state.cart.length > 0 && (
-          <button onClick={() => dispatch({ type: 'CLEAR_CART' })}
-            className="text-[10px] font-bold text-[#ef4444] flex items-center gap-1 active:scale-95">
-            <Trash2 size={11} /> Kosongkan
+        <div className="flex items-center gap-2.5">
+          <button onClick={() => setHistoryOpen(true)}
+            className="text-[10px] font-bold text-[#1A56DB] flex items-center gap-1 active:scale-95">
+            <History size={11} /> Riwayat{state.receipts.length > 0 ? ` (${state.receipts.length})` : ''}
           </button>
-        )}
+          {state.cart.length > 0 && (
+            <button onClick={() => dispatch({ type: 'CLEAR_CART' })}
+              className="text-[10px] font-bold text-[#ef4444] flex items-center gap-1 active:scale-95">
+              <Trash2 size={11} /> Kosongkan
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Cart Items */}
@@ -298,18 +367,69 @@ export default function POS() {
           {state.cart.map(item => (
             <div key={item.productId} className="flex justify-between text-xs text-[#9BA3BC] mb-1">
               <span>{item.productName} x{item.qty}</span>
-              <span>Rp {(item.price * item.qty).toLocaleString('id-ID')}</span>
+              <span>{formatRupiah(item.price * item.qty)}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Diskon + metode pembayaran + uang dibayar */}
+      {state.cart.length > 0 && (
+        <div className={`flex flex-col gap-2 mb-2.5 ${!isMobile ? 'border-t border-[#EEF0F6] pt-3' : ''}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-bold text-[#9BA3BC]">Diskon (Rp)</span>
+            <input
+              type="number" inputMode="numeric" value={discountInput} placeholder="0"
+              onChange={e => setDiscountInput(e.target.value)}
+              className="w-28 h-9 px-3 bg-[#F8F9FC] rounded-lg text-xs font-bold text-right text-[#1A1F3A] outline-none focus:ring-2 focus:ring-[#1A56DB]/30"
+            />
+          </div>
+          <div className="flex gap-1.5">
+            {paymentMethods.map(m => {
+              const Icon = m.icon;
+              const active = paymentMethod === m.key;
+              return (
+                <button
+                  key={m.key}
+                  onClick={() => setPaymentMethod(m.key)}
+                  className={`flex-1 h-9 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 transition-colors
+                    ${active ? 'bg-[#1A56DB] text-white' : 'bg-[#F8F9FC] text-[#9BA3BC]'}`}
+                >
+                  <Icon size={13} strokeWidth={2.4} /> {m.label}
+                </button>
+              );
+            })}
+          </div>
+          {paymentMethod === 'cash' && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold text-[#9BA3BC]">Uang dibayar</span>
+              <input
+                type="number" inputMode="numeric" value={cashPaidInput} placeholder={String(netTotal)}
+                onChange={e => setCashPaidInput(e.target.value)}
+                className="w-28 h-9 px-3 bg-[#F8F9FC] rounded-lg text-xs font-bold text-right text-[#1A1F3A] outline-none focus:ring-2 focus:ring-[#1A56DB]/30"
+              />
+            </div>
+          )}
+          {paymentMethod === 'cash' && cashPaidInput.trim() !== '' && (
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-[#9BA3BC]">Kembalian</span>
+              <span className={`text-xs font-extrabold ${change >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                {formatRupiah(change)}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
       {/* Total & Checkout */}
       <div className={`flex items-center justify-between gap-3 ${!isMobile ? 'border-t border-[#EEF0F6] pt-3 mt-auto' : ''}`}>
         <div>
-          <div className="text-[10px] text-[#9BA3BC] font-medium">Total</div>
+          {discount > 0 && (
+            <div className="text-[10px] text-[#9BA3BC] font-medium line-through">{formatRupiah(grossTotal)}</div>
+          )}
+          <div className="text-[10px] text-[#9BA3BC] font-medium">Total{discount > 0 ? ' setelah diskon' : ''}</div>
           <div className="font-extrabold text-[#1A1F3A]" style={{ fontSize: 'clamp(15px, 4.5vw, 20px)' }}>
-            Rp {cartTotal.toLocaleString('id-ID')}
+            {formatRupiah(netTotal)}
           </div>
         </div>
         <button
@@ -341,7 +461,7 @@ export default function POS() {
             <div className="min-w-0">
               <div className="text-xs font-extrabold text-[#1A1F3A] truncate">Struk terakhir</div>
               <div className="text-[10px] font-semibold text-[#3D4566] truncate">
-                {lastReceipt.id} · Rp {lastReceipt.total.toLocaleString('id-ID')}
+                {lastReceipt.id} · {formatRupiah(lastReceipt.total)}
               </div>
             </div>
           </div>
@@ -353,6 +473,42 @@ export default function POS() {
           </button>
         </div>
       )}
+
+      {/* Riwayat struk — semua transaksi tersimpan & bisa dicetak ulang */}
+      <ModalSheet open={historyOpen} onClose={() => setHistoryOpen(false)} title="Riwayat Struk">
+        {state.receipts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Receipt size={40} className="text-[#DDE1EF] mb-3" strokeWidth={1.5} />
+            <p className="text-sm font-bold text-[#9BA3BC]">Belum ada struk</p>
+            <p className="text-xs text-[#DDE1EF] mt-1">Struk akan tersimpan otomatis setiap transaksi</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {state.receipts.map(receipt => {
+              const issued = new Date(receipt.createdAt);
+              const itemCount = receipt.items.reduce((sum, i) => sum + i.qty, 0);
+              return (
+                <div key={receipt.id} className="flex items-center justify-between gap-3 bg-[#F8F9FC] rounded-xl px-3 py-2.5">
+                  <div className="min-w-0">
+                    <div className="text-xs font-extrabold text-[#1A1F3A] truncate">{receipt.id}</div>
+                    <div className="text-[10px] font-semibold text-[#9BA3BC]">
+                      {issued.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })} {issued.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                      {' · '}{itemCount} item{receipt.paymentMethod ? ` · ${paymentLabel[receipt.paymentMethod]}` : ''}
+                    </div>
+                    <div className="text-xs font-bold text-[#1A56DB] mt-0.5">{formatRupiah(receipt.total)}</div>
+                  </div>
+                  <button
+                    onClick={() => printReceipt(receipt)}
+                    className="h-9 px-3 rounded-lg bg-white text-[#1A56DB] text-xs font-bold flex items-center gap-1.5 active:scale-[0.98] transition-transform shrink-0 card-shadow"
+                  >
+                    <Printer size={14} strokeWidth={2.4} /> Cetak
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </ModalSheet>
     </div>
   );
 

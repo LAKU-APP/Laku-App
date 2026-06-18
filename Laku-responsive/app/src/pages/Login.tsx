@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Mail, Lock, AlertCircle, User, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Mail, Lock, AlertCircle, User, Eye, EyeOff, ArrowRight, TrendingUp, Package, Receipt, Rocket } from 'lucide-react';
 import { apiLogin, apiRegister, saveToken } from '@/lib/api';
 import { useIsMobile } from '@/hooks/use-mobile';
 import LakuLogo from '@/components/LakuLogo';
 
+// Sorotan fitur utama pada panel branding halaman login.
+const loginHighlights = [
+  { icon: TrendingUp, title: 'Pantau Laba', desc: 'Lihat untung harian secara real-time' },
+  { icon: Package, title: 'Kelola Stok', desc: 'Peringatan otomatis saat stok menipis' },
+  { icon: Receipt, title: 'Catat Transaksi', desc: 'Struk & laporan tercatat otomatis' },
+];
+
 export default function Login() {
-  const { dispatch, showToast, login } = useApp();
+  const { dispatch, showToast, login, restartOnboarding } = useApp();
   const isMobile = useIsMobile();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -70,6 +77,8 @@ export default function Login() {
     try {
       const res = await apiLogin('admin@laku.id', 'admin123');
       saveToken(res.token);
+      // Mode demo selalu memutar ulang langkah pengenalan, bukan langsung masuk.
+      restartOnboarding();
       login(res.user);
       dispatch({ type: 'SET_TAB', payload: 'dashboard' });
       showToast('Login sebagai Admin Demo berhasil!');
@@ -207,7 +216,7 @@ export default function Login() {
                 bg-gradient-to-r from-[#f0fdf4] to-[#dcfce7] border-2 border-[#bbf7d0] text-[#16a34a]
                 hover:from-[#dcfce7] hover:to-[#bbf7d0] ${compact ? 'h-9 text-xs' : 'h-11 text-sm'}`}
             >
-              🚀 Masuk Demo (Admin)
+              <Rocket size={compact ? 14 : 16} strokeWidth={2.4} /> Masuk Demo (Admin)
             </button>
 
             <p className={`text-[#9BA3BC] text-center ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
@@ -285,13 +294,27 @@ export default function Login() {
         {/* Subtle glow */}
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-[#1A56DB]/20 blur-[80px] pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col items-center">
+        <div className="relative z-10 flex flex-col items-center px-12">
           <div className="w-20 h-20 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center mb-6"
             style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
             <LakuLogo size={42} className="text-white" />
           </div>
-          <div className="text-white font-extrabold tracking-[0.15em] text-3xl mb-3">LAKU</div>
-          <div className="text-white/40 text-xs font-medium tracking-widest uppercase">Manajemen Toko</div>
+          <div className="text-white font-extrabold tracking-[0.15em] text-3xl mb-2">LAKU</div>
+          <div className="text-white/50 text-sm font-medium mb-10 text-center">Warung digital untuk UMKM Indonesia</div>
+
+          <div className="flex flex-col gap-3 w-[300px]">
+            {loginHighlights.map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="flex items-center gap-3 bg-white/[0.06] border border-white/10 rounded-xl px-4 py-3 backdrop-blur-sm">
+                <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
+                  <Icon size={18} className="text-white" strokeWidth={2.2} />
+                </div>
+                <div>
+                  <div className="text-white text-sm font-bold leading-tight">{title}</div>
+                  <div className="text-white/45 text-[11px] font-medium leading-tight mt-0.5">{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

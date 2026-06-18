@@ -10,13 +10,16 @@ interface ModalSheetProps {
 
 export default function ModalSheet({ open, onClose, title, children }: ModalSheetProps) {
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-    } else {
+    if (!open) return;
+    document.body.style.overflow = 'hidden';
+    // Tutup modal saat menekan tombol Escape (umum & membantu aksesibilitas).
+    const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
       document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [open]);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open, onClose]);
 
   if (!open) return null;
 
@@ -31,6 +34,9 @@ export default function ModalSheet({ open, onClose, title, children }: ModalShee
         onClick={onClose}
       >
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
           className="bg-white rounded-2xl flex flex-col w-full max-w-md modal-sheet"
           style={{ maxHeight: '85dvh', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}
           onClick={e => e.stopPropagation()}
@@ -60,6 +66,9 @@ export default function ModalSheet({ open, onClose, title, children }: ModalShee
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className="w-full bg-white rounded-t-3xl modal-sheet flex flex-col"
         style={{
           maxHeight: '88dvh',

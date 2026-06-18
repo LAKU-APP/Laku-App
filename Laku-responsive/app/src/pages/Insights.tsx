@@ -2,6 +2,10 @@ import { useMemo, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { TrendingUp, Package, BarChart3, AlertTriangle, Bot, Lightbulb, ChevronDown, Receipt } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { formatRupiah } from '@/lib/finance';
+
+const URGENCY_RANK = { high: 3, medium: 2, low: 1 } as const;
+type Urgency = keyof typeof URGENCY_RANK;
 
 function allZeroWeek(weekData: { revenue: number }[]) {
   return weekData.every(d => d.revenue === 0);
@@ -23,9 +27,10 @@ export default function Insights() {
   const [predictionOpen, setPredictionOpen] = useState(false);
 
   const stats = useMemo(() => {
+    const threshold = state.storeSettings.lowStockThreshold;
     const totalProducts = state.products.length;
     const totalTransactions = state.transactions.length;
-    const lowStockItems = state.products.filter(p => p.stock <= 5 && p.stock > 0);
+    const lowStockItems = state.products.filter(p => p.stock > 0 && p.stock <= threshold);
     const outOfStock = state.products.filter(p => p.stock === 0);
 
     const salesByProduct = new Map<string, number>();
@@ -64,19 +69,55 @@ export default function Insights() {
     
     const maxRevenue = Math.max(...weekData.map(d => d.revenue), 1);
 
-    return { totalProducts, totalTransactions, lowStockItems, outOfStock, bestSeller, bestSellerQty, weekData, maxRevenue };
-  }, [state.products, state.transactions]);
+    // ── Prediksi restock — dihitung dari kecepatan penjualan 7 hari terakhir ──
+    // Berapa unit terjual per produk dalam 7 hari → rata-rata harian → perkiraan
+    // berapa hari stok bertahan, dan rekomendasi jumlah restock untuk 7 hari ke depan.
+    const sevenDaysAgoMs = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+    const soldLast7 = new Map<string, number>();
+    state.transactions
+      .filter(t => t.type === 'OUT' && new Date(t.createdAt).getTime() >= sevenDaysAgoMs)
+      .forEach(t => soldLast7.set(t.productId, (soldLast7.get(t.productId) || 0) + t.qty));
 
-  const predictions = [
-    { product: 'Cabai Merah', qty: '+12 kg', urgency: 'high' },
-    { product: 'Telur', qty: '+5 kg', urgency: 'medium' },
-    { product: 'Beras', qty: 'Stok cukup', urgency: 'low' },
-    { product: 'Minyak Goreng', qty: '+4 liter', urgency: 'medium' },
-  ];
+    const restockPredictions = state.products
+      .map(p => {
+        const sold = soldLast7.get(p.id) || 0;
+        const avgDaily = sold / 7;
+        const daysLeft = avgDaily > 0 ? p.stock / avgDaily : Infinity;
+        const recommended = Math.max(0, Math.ceil(avgDaily * 7) - p.stock);
+        let urgency: Urgency = 'low';
+        if (p.stock === 0 || daysLeft < 3) urgency = 'high';
+        else if (daysLeft < 7) urgency = 'medium';
+        return { id: p.id, product: p.name, stock: p.stock, recommended, urgency, avgDaily };
+      })
+      .sort((a, b) => URGENCY_RANK[b.urgency] - URGENCY_RANK[a.urgency] || b.avgDaily - a.avgDaily)
+      .slice(0, 5);
+
+    // ── Prakiraan omzet minggu depan ──
+    // Dasar: rata-rata omzet harian 7 hari terakhir, diekstrapolasi 7 hari ke
+    // depan, lalu disesuaikan dengan momentum (tren awal vs akhir minggu) yang
+    // dibatasi ±30% agar tidak liar. Confidence mengikuti banyaknya hari berdata.
+    const totalWeekRevenue = weekData.reduce((s, d) => s + d.revenue, 0);
+    const daysWithData = weekData.filter(d => d.revenue > 0).length;
+    const avgDailyRevenue = totalWeekRevenue / 7;
+    const withData = weekData.filter(d => d.revenue > 0);
+    let momentum = 0;
+    if (withData.length >= 2 && withData[0].revenue > 0) {
+      momentum = Math.round(((withData[withData.length - 1].revenue - withData[0].revenue) / withData[0].revenue) * 100);
+    }
+    const cappedMomentum = Math.max(-30, Math.min(30, momentum));
+    const forecast = {
+      amount: Math.round((avgDailyRevenue * 7) * (1 + cappedMomentum / 100) / 1000) * 1000,
+      changePct: cappedMomentum,
+      confidence: Math.min(95, Math.round((daysWithData / 7) * 100)),
+      hasData: totalWeekRevenue > 0,
+    };
+
+    return { totalProducts, totalTransactions, lowStockItems, outOfStock, bestSeller, bestSellerQty, weekData, maxRevenue, restockPredictions, forecast };
+  }, [state.products, state.transactions, state.storeSettings.lowStockThreshold]);
 
   const overviewCards = (
-    <div className={`grid gap-2.5 ${isMobile ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
-      <div className="bg-white rounded-xl p-3 card-shadow animate-fade-up animate-delay-1">
+    <div className={`grid gap-2.5 auto-rows-fr ${isMobile ? 'grid-cols-2' : 'grid-cols-2 md:grid-cols-4'}`}>
+      <div className="bg-white rounded-xl p-3 h-full card-shadow animate-fade-up animate-delay-1">
         <div className="flex items-center gap-2 mb-2">
           <div className="w-8 h-8 rounded-xl bg-[#E8F1FF] flex items-center justify-center shrink-0">
             <Package size={15} className="text-[#1A56DB]" strokeWidth={2.5} />
@@ -86,7 +127,7 @@ export default function Insights() {
         <div className="text-xl font-extrabold text-[#1A1F3A]">{stats.totalProducts}</div>
         <div className="text-[10px] text-[#9BA3BC] font-medium mt-0.5">produk aktif</div>
       </div>
-      <div className="bg-white rounded-xl p-3 card-shadow animate-fade-up animate-delay-2">
+      <div className="bg-white rounded-xl p-3 h-full card-shadow animate-fade-up animate-delay-2">
         <div className="flex items-center gap-2 mb-2">
           <div className="w-8 h-8 rounded-xl bg-[#E8F1FF] flex items-center justify-center shrink-0">
             <TrendingUp size={15} className="text-[#1D4ED8]" strokeWidth={2.5} />
@@ -96,7 +137,7 @@ export default function Insights() {
         <div className="text-base font-extrabold text-[#1A1F3A] leading-tight truncate">{stats.bestSeller}</div>
         <div className="text-[10px] text-[#9BA3BC] font-medium mt-0.5">{stats.bestSellerQty} terjual</div>
       </div>
-      <div className="bg-white rounded-xl p-3 card-shadow animate-fade-up animate-delay-3">
+      <div className="bg-white rounded-xl p-3 h-full card-shadow animate-fade-up animate-delay-3">
         <div className="flex items-center gap-2 mb-2">
           <div className="w-8 h-8 rounded-xl bg-[#E8F1FF] flex items-center justify-center shrink-0">
             <Receipt size={15} className="text-[#0B3A8D]" strokeWidth={2.5} />
@@ -106,7 +147,7 @@ export default function Insights() {
         <div className={`${isMobile ? 'text-xl' : 'text-2xl'} font-extrabold text-[#1A1F3A]`}>{stats.totalTransactions}</div>
         <div className="text-[10px] text-[#9BA3BC] font-medium mt-0.5">semua waktu</div>
       </div>
-      <div className="bg-white rounded-xl p-3 card-shadow animate-fade-up animate-delay-4">
+      <div className="bg-white rounded-xl p-3 h-full card-shadow animate-fade-up animate-delay-4">
         <div className="flex items-center gap-2 mb-2">
           <div className="w-8 h-8 rounded-xl bg-[#FEF2F2] flex items-center justify-center shrink-0">
             <AlertTriangle size={15} className="text-[#dc2626]" strokeWidth={2.5} />
@@ -221,35 +262,45 @@ export default function Insights() {
         <h3 className="text-sm font-extrabold text-[#1A1F3A]">Prediksi Belanja Minggu Depan</h3>
       </div>
       <div className="divide-y divide-[#EEF0F6]">
-        {predictions.map((pred, i) => (
-          <div key={i} className="flex items-center justify-between px-3 py-2.5">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                pred.urgency === 'high' ? 'bg-[#FEF2F2]' :
-                pred.urgency === 'medium' ? 'bg-[#FFF7ED]' : 'bg-[#E8F1FF]'
-              }`}>
-                <Package
-                  size={15}
-                  className={
+        {stats.restockPredictions.length === 0 && (
+          <div className="px-3 py-6 text-center text-xs font-semibold text-[#9BA3BC]">
+            Belum ada produk untuk dianalisis
+          </div>
+        )}
+        {stats.restockPredictions.map(pred => {
+          const qtyLabel = pred.recommended > 0
+            ? `+${pred.recommended} unit`
+            : pred.stock === 0 ? 'Perlu restok' : 'Stok cukup';
+          return (
+            <div key={pred.id} className="flex items-center justify-between px-3 py-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                  pred.urgency === 'high' ? 'bg-[#FEF2F2]' :
+                  pred.urgency === 'medium' ? 'bg-[#FFF7ED]' : 'bg-[#E8F1FF]'
+                }`}>
+                  <Package
+                    size={15}
+                    className={
+                      pred.urgency === 'high' ? 'text-[#dc2626]' :
+                      pred.urgency === 'medium' ? 'text-[#B45309]' : 'text-[#1A56DB]'
+                    }
+                    strokeWidth={2.4}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-[#1A1F3A] truncate">{pred.product}</div>
+                  <div className={`text-[10px] font-bold mt-0.5 ${
                     pred.urgency === 'high' ? 'text-[#dc2626]' :
-                    pred.urgency === 'medium' ? 'text-[#B45309]' : 'text-[#1A56DB]'
-                  }
-                  strokeWidth={2.4}
-                />
-              </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold text-[#1A1F3A] truncate">{pred.product}</div>
-                <div className={`text-[10px] font-bold mt-0.5 ${
-                  pred.urgency === 'high' ? 'text-[#dc2626]' :
-                  pred.urgency === 'medium' ? 'text-[#B45309]' : 'text-[#1A56DB]'}`}>
-                  {pred.urgency === 'high' ? 'Segera restock' :
-                   pred.urgency === 'medium' ? 'Restock minggu ini' : 'Stok aman'}
+                    pred.urgency === 'medium' ? 'text-[#B45309]' : 'text-[#1A56DB]'}`}>
+                    {pred.urgency === 'high' ? 'Segera restock' :
+                     pred.urgency === 'medium' ? 'Restock minggu ini' : 'Stok aman'}
+                  </div>
                 </div>
               </div>
+              <span className="text-xs font-extrabold text-[#1A1F3A] shrink-0 ml-2">{qtyLabel}</span>
             </div>
-            <span className="text-xs font-extrabold text-[#1A1F3A] shrink-0 ml-2">{pred.qty}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -293,7 +344,7 @@ export default function Insights() {
 
       <div className="mt-3">
         <div className="text-xl font-extrabold text-white mb-0.5">
-          Rp 2.800.000
+          {stats.forecast.hasData ? formatRupiah(stats.forecast.amount) : 'Belum cukup data'}
         </div>
         <div className="text-xs font-bold text-white/80">
           Prediksi Omzet Minggu Depan
@@ -305,7 +356,9 @@ export default function Insights() {
       <div className="relative z-10 mx-4 mb-4 rounded-xl bg-white/15 border border-white/20 p-3">
         <div className="flex justify-between items-center py-2 border-b border-white/10">
           <span className="text-xs font-semibold text-white/70">Perubahan</span>
-          <span className="text-xs font-extrabold text-white">+12%</span>
+          <span className="text-xs font-extrabold text-white">
+            {stats.forecast.changePct >= 0 ? '+' : ''}{stats.forecast.changePct}%
+          </span>
         </div>
 
         <div className="flex justify-between items-center py-2 border-b border-white/10">
@@ -315,11 +368,12 @@ export default function Insights() {
 
         <div className="flex justify-between items-center py-2 border-b border-white/10">
           <span className="text-xs font-semibold text-white/70">Confidence</span>
-          <span className="text-xs font-extrabold text-white">78%</span>
+          <span className="text-xs font-extrabold text-white">{stats.forecast.confidence}%</span>
         </div>
 
         <p className="text-[11px] text-white/70 font-medium leading-relaxed pt-2">
-          Prediksi ini dihitung dari pola penjualan mingguan, produk terlaris, dan transaksi terakhir.
+          Dihitung dari rata-rata omzet harian 7 hari terakhir, disesuaikan dengan tren penjualan terbaru.
+          Semakin banyak hari yang ada transaksinya, semakin tinggi tingkat keyakinannya.
         </p>
       </div>
     )}
