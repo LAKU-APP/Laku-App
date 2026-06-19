@@ -13,7 +13,7 @@ const loginHighlights = [
 ];
 
 export default function Login() {
-  const { dispatch, showToast, login, restartOnboarding } = useApp();
+  const { dispatch, showToast, login, completeOnboarding, restartOnboarding } = useApp();
   const isMobile = useIsMobile();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -56,13 +56,28 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const res = mode === 'login'
-        ? await apiLogin(email.trim(), password)
-        : await apiRegister(name.trim(), email.trim(), password);
+      if (mode === 'register') {
+        // Daftar akun saja — TIDAK langsung masuk aplikasi. User baru wajib
+        // login dulu (validasi), baru melewati langkah pengenalan.
+        // Alur: buat akun → kembali ke login → langkah-langkah → masuk aplikasi.
+        await apiRegister(name.trim(), email.trim(), password);
+        const registeredEmail = email.trim();
+        setMode('login');
+        setName(''); setPassword(''); setConfirmPassword('');
+        setShowPass(false); setShowConfirmPass(false);
+        setEmail(registeredEmail); // email diisi otomatis agar tinggal masukkan password
+        showToast('Akun berhasil dibuat! Silakan login untuk melanjutkan.');
+        return;
+      }
+
+      const res = await apiLogin(email.trim(), password);
       saveToken(res.token);
-      login(res.user);
+      // User baru → tampilkan langkah pengenalan dulu; user lama → langsung masuk.
+      const { onboardingCompleted, ...user } = res.user;
+      if (onboardingCompleted) completeOnboarding(); else restartOnboarding();
+      login(user);
       dispatch({ type: 'SET_TAB', payload: 'dashboard' });
-      showToast(mode === 'login' ? 'Login berhasil!' : 'Akun berhasil dibuat!');
+      showToast('Login berhasil!');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Terjadi kesalahan, coba lagi';
       setError(msg);

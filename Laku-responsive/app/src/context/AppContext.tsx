@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 import type { Product, Transaction, CartItem, TabType, ToastState, Notification, ReceiptSnapshot, StoreSettings } from '@/types';
-import { clearToken } from '@/lib/api';
+import { clearToken, apiCompleteOnboarding } from '@/lib/api';
 import { readStorage, writeStorage, removeStorage } from '@/lib/storage';
 import { calcGrossProfit } from '@/lib/finance';
 import { generateId } from '@/lib/utils';
@@ -382,8 +382,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const completeOnboarding = useCallback(() => {
     writeStorage(STORAGE_KEYS.onboarding, true);
+    // Catat agar saat user ini login lagi nanti tidak diminta onboarding ulang.
+    if (state.user?.email) void apiCompleteOnboarding(state.user.email);
     dispatch({ type: 'SET_ONBOARDING_COMPLETE' });
-  }, []);
+  }, [state.user]);
 
   // Tampilkan ulang langkah-langkah pengenalan (dipakai saat masuk mode demo).
   const restartOnboarding = useCallback(() => {
