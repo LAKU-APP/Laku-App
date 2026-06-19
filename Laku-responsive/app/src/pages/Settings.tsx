@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import {
   Store, MapPin, Phone, MessageSquare, Wallet, Target, AlertTriangle,
   Tag, Plus, X, LogOut, Info, Database, RotateCcw, Trash2, ChevronDown,
+  Bell, PackageX, Download, Upload,
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatRupiah } from '@/lib/finance';
 import ModalSheet from '@/components/ModalSheet';
 
-type SectionId = 'profil' | 'operasional' | 'kategori' | 'data' | 'akun';
+type SectionId = 'profil' | 'operasional' | 'notifikasi' | 'kategori' | 'data' | 'akun';
 
 // Bersihkan input angka menjadi bilangan bulat non-negatif (atau 0).
 function toAmount(value: string): number {
@@ -19,6 +20,7 @@ function toAmount(value: string): number {
 export default function Settings() {
   const { state, dispatch, showToast, logout, updateStoreSettings, setDailyTarget } = useApp();
   const isMobile = useIsMobile();
+  const importRef = useRef<HTMLInputElement>(null);
 
   // Akordeon: hanya satu seksi terbuka agar tidak perlu scroll panjang.
   const [openSection, setOpenSection] = useState<SectionId>('profil');
@@ -67,10 +69,63 @@ export default function Settings() {
     setConfirmReset(null);
   };
 
+  // Unduh seluruh data (produk, transaksi, struk, kategori, target, pengaturan)
+  // sebagai berkas JSON untuk dijadikan cadangan.
+  const handleExportData = () => {
+    const backup = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      products: state.products,
+      transactions: state.transactions,
+      receipts: state.receipts,
+      categories: state.categories,
+      dailyTarget: state.dailyTarget,
+      storeSettings: state.storeSettings,
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `laku-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showToast('Data berhasil dicadangkan');
+  };
+
+  // Pulihkan data dari berkas cadangan JSON.
+  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // reset agar file yang sama bisa dipilih lagi
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(String(reader.result));
+        dispatch({
+          type: 'IMPORT_DATA',
+          payload: {
+            products: data.products,
+            transactions: data.transactions,
+            receipts: data.receipts,
+            categories: data.categories,
+          },
+        });
+        if (data.storeSettings && typeof data.storeSettings === 'object') updateStoreSettings(data.storeSettings);
+        if (typeof data.dailyTarget === 'number') setDailyTarget(data.dailyTarget);
+        showToast('Data berhasil dipulihkan');
+      } catch {
+        showToast('Berkas cadangan tidak valid');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const fieldClass = 'w-full h-12 px-4 bg-[#F8F9FC] rounded-xl text-sm font-bold text-[#1A1F3A] placeholder:text-[#9BA3BC] outline-none focus:ring-2 focus:ring-[#1A56DB]/30';
 
   return (
-    <div className={`flex-1 overflow-y-auto scrollbar-hide flex flex-col gap-3 ${isMobile ? 'px-4 pt-4 pb-24' : 'px-6 py-6'}`}>
+    <div className={`flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-3 ${isMobile ? 'px-4 pt-4 pb-24' : 'px-6 py-6'}`}>
       <div className={`w-full flex flex-col gap-3 ${isMobile ? '' : 'max-w-2xl mx-auto'}`}>
 
         {/* Profil Toko */}
@@ -119,13 +174,22 @@ export default function Settings() {
           </Field>
         </Section>
 
-        <button
-          onClick={handleSave}
-          className="w-full h-12 bg-[#1A56DB] rounded-xl text-white font-bold text-sm active:scale-[0.98] transition-transform"
-          style={{ boxShadow: '0 4px 20px rgba(26,79,214,0.3)' }}
+        {/* Preferensi Notifikasi */}
+        <Section
+          icon={Bell} title="Notifikasi" subtitle="Atur peringatan otomatis"
+          open={openSection === 'notifikasi'} onToggle={() => toggle('notifikasi')}
         >
-          Simpan Pengaturan
-        </button>
+          <ToggleRow
+            icon={PackageX} label="Peringatan Stok" desc="Beri tahu saat stok menipis atau habis"
+            checked={state.storeSettings.notifLowStock}
+            onChange={v => updateStoreSettings({ notifLowStock: v })}
+          />
+          <ToggleRow
+            icon={Target} label="Target Tercapai" desc="Beri tahu saat target laba harian tercapai"
+            checked={state.storeSettings.notifTarget}
+            onChange={v => updateStoreSettings({ notifTarget: v })}
+          />
+        </Section>
 
         {/* Kategori Produk */}
         <Section
@@ -167,9 +231,24 @@ export default function Settings() {
 
         {/* Manajemen Data */}
         <Section
-          icon={Database} title="Manajemen Data" subtitle="Tersimpan di perangkat ini"
+          icon={Database} title="Manajemen Data" subtitle="Cadangkan, pulihkan, atau reset"
           open={openSection === 'data'} onToggle={() => toggle('data')}
         >
+          <div className="grid grid-cols-2 gap-2.5">
+            <button
+              onClick={handleExportData}
+              className="h-11 rounded-xl bg-[#e8f1ff] text-[#1A56DB] font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform hover:bg-[#d4e4fb]"
+            >
+              <Download size={16} strokeWidth={2.2} /> Cadangkan
+            </button>
+            <button
+              onClick={() => importRef.current?.click()}
+              className="h-11 rounded-xl bg-[#F8F9FC] text-[#3D4566] font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform hover:bg-[#EEF0F6]"
+            >
+              <Upload size={16} strokeWidth={2.2} /> Pulihkan
+            </button>
+          </div>
+          <input ref={importRef} type="file" accept="application/json,.json" className="hidden" onChange={handleImportData} />
           <button
             onClick={() => setConfirmReset('demo')}
             className="w-full h-11 rounded-xl bg-[#F8F9FC] text-[#3D4566] font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform hover:bg-[#EEF0F6]"
@@ -207,6 +286,15 @@ export default function Settings() {
             <LogOut size={16} strokeWidth={2} /> Keluar dari Akun
           </button>
         </Section>
+
+        {/* Tombol simpan di paling bawah — menyimpan Profil Toko & Operasional */}
+        <button
+          onClick={handleSave}
+          className="w-full h-12 mt-1 bg-[#1A56DB] rounded-xl text-white font-bold text-sm active:scale-[0.98] transition-transform"
+          style={{ boxShadow: '0 4px 20px rgba(26,79,214,0.3)' }}
+        >
+          Simpan Pengaturan
+        </button>
 
         <p className="text-center text-[11px] font-semibold text-[#DDE1EF] pt-1 pb-2">LAKU · Warung Digital · v1.0</p>
       </div>
@@ -275,6 +363,33 @@ function Section({ icon: Icon, title, subtitle, open, onToggle, children }: {
         />
       </button>
       {open && <div className="px-4 pb-4 flex flex-col gap-3.5">{children}</div>}
+    </div>
+  );
+}
+
+// Baris dengan label + sakelar on/off.
+function ToggleRow({ icon: Icon, label, desc, checked, onChange }: {
+  icon: typeof Store; label: string; desc: string; checked: boolean; onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-9 h-9 rounded-xl bg-[#F4F6FD] flex items-center justify-center shrink-0">
+        <Icon size={16} className="text-[#1A56DB]" strokeWidth={2.2} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-bold text-[#1A1F3A] leading-tight">{label}</div>
+        <div className="text-[11px] font-medium text-[#9BA3BC] leading-tight mt-0.5">{desc}</div>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${checked ? 'bg-[#1A56DB]' : 'bg-[#DDE1EF]'}`}
+      >
+        <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${checked ? 'left-[22px]' : 'left-0.5'}`} />
+      </button>
     </div>
   );
 }

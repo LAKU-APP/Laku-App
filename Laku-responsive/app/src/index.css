@@ -129,6 +129,13 @@
   100% { background-position: 200% 0; }
 }
 
+/* Titik animasi untuk splash "laku..." */
+@keyframes lakuDot {
+  0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+.laku-dot { animation: lakuDot 1.2s infinite ease-in-out; }
+
 .animate-fade-up {
   opacity: 0;
   backface-visibility: hidden;

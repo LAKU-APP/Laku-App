@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ModalSheetProps {
   open: boolean;
@@ -9,6 +10,8 @@ interface ModalSheetProps {
 }
 
 export default function ModalSheet({ open, onClose, title, children }: ModalSheetProps) {
+  // Breakpoint reaktif (ikut resize/rotasi) — bukan baca window sekali saja.
+  const isMobile = useIsMobile();
   useEffect(() => {
     if (!open) return;
     document.body.style.overflow = 'hidden';
@@ -24,9 +27,7 @@ export default function ModalSheet({ open, onClose, title, children }: ModalShee
   if (!open) return null;
 
   // Tablet/Desktop: centered dialog
-  const isWide = typeof window !== 'undefined' && window.innerWidth >= 768;
-
-  if (isWide) {
+  if (!isMobile) {
     return (
       <div
         className="fixed inset-0 z-[200] flex items-center justify-center p-4 modal-overlay"

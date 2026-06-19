@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
+import Splash from '@/components/Splash';
 import TopNav from '@/components/TopNav';
 import BottomNav from '@/components/BottomNav';
 import SideNav from '@/components/SideNav';
@@ -54,12 +56,13 @@ function AppContent() {
 }
 
   // Tablet + Desktop: >= 768px — SideNav + TopNav
+  // h-dvh (tinggi tetap, bukan min-h) agar area konten bisa scroll internal.
   return (
-    <div className="min-h-dvh w-full bg-[#EEF3F8] flex overflow-hidden">
+    <div className="h-dvh w-full bg-[#EEF3F8] flex overflow-hidden">
       <SideNav />
       <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         <TopNav isDesktop />
-        <main className="flex-1 flex flex-col overflow-hidden relative">
+        <main className="flex-1 flex flex-col overflow-hidden relative min-h-0">
           {renderPage()}
         </main>
       </div>
@@ -69,5 +72,13 @@ function AppContent() {
 }
 
 export default function App() {
+  // Splash pembuka singkat saat aplikasi pertama dimuat.
+  const [booting, setBooting] = useState(true);
+  useEffect(() => {
+    const timer = setTimeout(() => setBooting(false), 1100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (booting) return <Splash />;
   return <AppContent />;
 }

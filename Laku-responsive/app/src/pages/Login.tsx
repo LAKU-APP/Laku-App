@@ -271,6 +271,16 @@ export default function Login() {
             </div>
           </div>
 
+          {/* Sorotan fitur — biar layar masuk terasa kaya & meyakinkan */}
+          <div className="grid grid-cols-3 gap-2 mt-4 animate-fade-up animate-delay-3">
+            {loginHighlights.map(({ icon: Icon, title }) => (
+              <div key={title} className="flex flex-col items-center gap-1.5 bg-white/[0.06] border border-white/10 rounded-xl py-2.5 px-1">
+                <Icon size={16} className="text-white/80" strokeWidth={2.2} />
+                <span className="text-[9px] font-semibold text-white/60 text-center leading-tight">{title}</span>
+              </div>
+            ))}
+          </div>
+
           <p className="text-center text-white/20 text-[10px] mt-4">© 2026 Laku</p>
         </div>
       </div>

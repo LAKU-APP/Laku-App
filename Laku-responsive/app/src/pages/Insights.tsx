@@ -1,25 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { TrendingUp, Package, BarChart3, AlertTriangle, Bot, Lightbulb, ChevronDown, Receipt } from 'lucide-react';
+import { TrendingUp, Package, BarChart3, AlertTriangle, Bot, Lightbulb, ChevronDown, Receipt, ArrowUpRight, ArrowDownLeft, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { formatRupiah } from '@/lib/finance';
+import { calcGrossProfit, formatRupiah } from '@/lib/finance';
+import type { Transaction, Product } from '@/types';
 
 const URGENCY_RANK = { high: 3, medium: 2, low: 1 } as const;
 type Urgency = keyof typeof URGENCY_RANK;
-
-function allZeroWeek(weekData: { revenue: number }[]) {
-  return weekData.every(d => d.revenue === 0);
-}
-
-function getTrendLabel(weekData: { day: string; revenue: number }[]) {
-  const withData = weekData.filter(d => d.revenue > 0);
-  if (withData.length < 2) return 'Data tren belum cukup';
-  const first = withData[0].revenue;
-  const last = withData[withData.length - 1].revenue;
-  const pct = (((last - first) / first) * 100).toFixed(0);
-  const up = last >= first;
-  return `${up ? '+' : ''}${pct}% dibanding awal minggu`;
-}
 
 export default function Insights() {
   const { state } = useApp();
@@ -161,73 +148,7 @@ export default function Insights() {
   );
 
   const weeklyChart = (
-    <div className="bg-white rounded-xl p-4 card-shadow animate-fade-up animate-delay-3">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#e8effe] to-[#d4e4fb] flex items-center justify-center shrink-0">
-            <BarChart3 size={17} className="text-[#1A56DB]" strokeWidth={2.5} />
-          </div>
-          <h3 className="text-sm font-extrabold text-[#1A1F3A]">Omzet Mingguan</h3>
-        </div>
-        <span className="text-[10px] font-bold text-[#9BA3BC]">
-          Total: Rp {stats.weekData.reduce((s, d) => s + d.revenue, 0).toLocaleString('id-ID')}
-        </span>
-      </div>
-
-      {/* Chart area */}
-      <div className={`relative flex items-end justify-between gap-1 ${isMobile ? 'h-[140px]' : 'h-[160px]'}`}>
-        {stats.weekData.map((d, i) => {
-          const isToday = i === stats.weekData.length - 1;
-          // Kalau semua 0, tampilkan bar placeholder 20% biar keliatan
-          const allZero = stats.maxRevenue === 0;
-          const heightPercent = allZero
-            ? 20
-            : stats.maxRevenue > 0
-              ? Math.max((d.revenue / stats.maxRevenue) * 100, d.revenue > 0 ? 8 : 4)
-              : 4;
-
-          return (
-            <div key={i} className="flex flex-col items-center flex-1 h-full justify-end" style={{ gap: '2px' }}>
-              {/* Value label */}
-              <div className="text-[8px] font-bold text-[#9BA3BC] min-h-[10px] text-center leading-none">
-                {d.revenue > 0 ? `${(d.revenue / 1000).toFixed(0)}k` : ''}
-              </div>
-              {/* Bar */}
-              <div
-                className="w-full rounded-t-md transition-smooth"
-                style={{
-                  height: `${heightPercent}%`,
-                  background: allZero
-                    ? '#EEF0F6'
-                    : d.revenue > 0
-                      ? isToday
-                        ? 'linear-gradient(to top, #1340b8, #3B82F6)'
-                        : 'linear-gradient(to top, #1A56DB, #60a5fa)'
-                      : '#EEF0F6',
-                  opacity: allZero ? 0.5 : 1,
-                  boxShadow: d.revenue > 0 ? '0 -2px 8px rgba(26,79,214,0.2)' : 'none',
-                }}
-              />
-              {/* Day label */}
-              <div className={`text-[9px] font-bold leading-none ${
-                isToday ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'
-              }`}>{d.day}</div>
-              {isToday && <div className="w-1 h-1 rounded-full bg-[#1A56DB] shrink-0" />}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Trend line info */}
-      {!allZeroWeek(stats.weekData) && (
-        <div className="mt-3 pt-3 border-t border-[#EEF0F6] flex items-center gap-2">
-          <TrendingUp size={13} className="text-[#22c55e] shrink-0" strokeWidth={2.5} />
-          <span className="text-[10px] font-bold text-[#9BA3BC]">
-            {getTrendLabel(stats.weekData)}
-          </span>
-        </div>
-      )}
-    </div>
+    <SalesChart transactions={state.transactions} products={state.products} isMobile={isMobile} />
   );
 
   const stockAlerts = (stats.lowStockItems.length > 0 || stats.outOfStock.length > 0) && (
@@ -381,7 +302,7 @@ export default function Insights() {
 );
 
   return (
-    <div className={`flex-1 overflow-y-auto scrollbar-hide flex flex-col gap-3.5 ${isMobile ? 'px-4 pt-3 pb-24 w-full overscroll-contain' : 'px-6 py-6 w-full'}`}>
+    <div className={`flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-3.5 ${isMobile ? 'px-4 pt-3 pb-24 w-full overscroll-contain' : 'px-6 py-6 w-full'}`}>
       {/* Header - mobile only */}
       {isMobile && (
         <div className="flex items-center gap-2.5 animate-fade-up animate-delay-1">
@@ -417,6 +338,159 @@ export default function Insights() {
           </div>
         </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// Grafik omzet interaktif: pilih periode 7/30 hari, ketuk batang untuk melihat
+// rincian pemasukan, pengeluaran, laba, dan daftar transaksi pada hari itu.
+function SalesChart({ transactions, products, isMobile }: {
+  transactions: Transaction[];
+  products: Product[];
+  isMobile: boolean;
+}) {
+  const [period, setPeriod] = useState<7 | 30>(7);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const days = useMemo(() => {
+    const now = new Date();
+    const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    const result: { dateStr: string; dayLabel: string; dayNum: number; revenue: number; expense: number }[] = [];
+    for (let i = period - 1; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayTx = transactions.filter(t => t.createdAt.split('T')[0] === dateStr);
+      result.push({
+        dateStr,
+        dayLabel: dayNames[d.getDay()],
+        dayNum: d.getDate(),
+        revenue: dayTx.filter(t => t.type === 'OUT').reduce((s, t) => s + t.totalPrice, 0),
+        expense: dayTx.filter(t => t.type === 'IN').reduce((s, t) => s + Math.abs(t.totalPrice), 0),
+      });
+    }
+    return result;
+  }, [transactions, period]);
+
+  const maxValue = Math.max(...days.map(d => d.revenue), 1);
+  const totalRevenue = days.reduce((s, d) => s + d.revenue, 0);
+  const allZero = days.every(d => d.revenue === 0);
+
+  const selected = selectedDate ? days.find(d => d.dateStr === selectedDate) ?? null : null;
+  const dayTransactions = selected ? transactions.filter(t => t.createdAt.split('T')[0] === selected.dateStr) : [];
+  const dayProfit = selected ? calcGrossProfit(dayTransactions, products) : 0;
+  const formatDayLong = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  return (
+    <div className="bg-white rounded-xl p-4 card-shadow animate-fade-up animate-delay-3">
+      {/* Header + pemilih periode */}
+      <div className="flex items-center justify-between mb-3 gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#e8effe] to-[#d4e4fb] flex items-center justify-center shrink-0">
+            <BarChart3 size={17} className="text-[#1A56DB]" strokeWidth={2.5} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-extrabold text-[#1A1F3A] leading-tight">Omzet {period === 7 ? 'Mingguan' : 'Bulanan'}</h3>
+            <span className="text-[10px] font-bold text-[#9BA3BC]">Total: {formatRupiah(totalRevenue)}</span>
+          </div>
+        </div>
+        <div className="flex gap-1 bg-[#F4F6FD] rounded-lg p-1 shrink-0">
+          {([7, 30] as const).map(p => (
+            <button
+              key={p}
+              onClick={() => { setPeriod(p); setSelectedDate(null); }}
+              className={`px-2.5 h-7 rounded-md text-[11px] font-bold transition-colors ${period === p ? 'bg-white text-[#1A56DB] shadow-sm' : 'text-[#9BA3BC]'}`}
+            >
+              {p === 7 ? '7 Hari' : '30 Hari'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Area chart — 30 hari bisa di-scroll horizontal agar batang tetap bisa diketuk */}
+      <div className={period === 30 ? 'overflow-x-auto scrollbar-hide' : ''}>
+        <div className={`relative flex items-end gap-1 ${isMobile ? 'h-[140px]' : 'h-[160px]'} ${period === 30 ? 'min-w-[560px]' : ''}`}>
+          {days.map(d => {
+            const isSelected = selectedDate === d.dateStr;
+            const heightPercent = allZero ? 6 : Math.max((d.revenue / maxValue) * 100, d.revenue > 0 ? 8 : 3);
+            return (
+              <button
+                key={d.dateStr}
+                onClick={() => setSelectedDate(isSelected ? null : d.dateStr)}
+                className="flex flex-col items-center flex-1 h-full justify-end gap-1 min-w-0"
+              >
+                <div className="text-[8px] font-bold text-[#9BA3BC] min-h-[10px] leading-none">
+                  {period === 7 && d.revenue > 0 ? `${(d.revenue / 1000).toFixed(0)}k` : ''}
+                </div>
+                <div
+                  className="w-full rounded-t-md transition-all"
+                  style={{
+                    height: `${heightPercent}%`,
+                    background: d.revenue > 0
+                      ? (isSelected ? 'linear-gradient(to top, #0B3A8D, #1A56DB)' : 'linear-gradient(to top, #1A56DB, #60a5fa)')
+                      : '#EEF0F6',
+                    boxShadow: isSelected ? '0 -2px 10px rgba(26,79,214,0.35)' : 'none',
+                  }}
+                />
+                <div className={`text-[8px] font-bold leading-none ${isSelected ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'}`}>
+                  {period === 7 ? d.dayLabel : (d.dayNum % 5 === 0 || isSelected ? d.dayNum : '')}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Petunjuk / rincian hari terpilih */}
+      {!selected ? (
+        <p className="text-[10px] text-[#9BA3BC] font-medium text-center mt-3 pt-3 border-t border-[#EEF0F6]">
+          Ketuk batang untuk lihat rincian pemasukan & pengeluaran hari itu
+        </p>
+      ) : (
+        <div className="mt-3 pt-3 border-t border-[#EEF0F6]">
+          <div className="flex items-center justify-between mb-2.5">
+            <span className="text-xs font-extrabold text-[#1A1F3A]">{formatDayLong(selected.dateStr)}</span>
+            <button onClick={() => setSelectedDate(null)} aria-label="Tutup rincian" className="text-[#9BA3BC] hover:text-[#1A1F3A]">
+              <X size={15} strokeWidth={2.5} />
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="bg-[#f0fdf4] rounded-lg p-2 text-center">
+              <div className="text-[9px] font-bold text-[#16a34a]">Pemasukan</div>
+              <div className="text-[11px] font-extrabold text-[#16a34a] mt-0.5">{formatRupiah(selected.revenue)}</div>
+            </div>
+            <div className="bg-[#fef2f2] rounded-lg p-2 text-center">
+              <div className="text-[9px] font-bold text-[#ef4444]">Pengeluaran</div>
+              <div className="text-[11px] font-extrabold text-[#ef4444] mt-0.5">{formatRupiah(selected.expense)}</div>
+            </div>
+            <div className="bg-[#e8f1ff] rounded-lg p-2 text-center">
+              <div className="text-[9px] font-bold text-[#1A56DB]">Laba</div>
+              <div className="text-[11px] font-extrabold text-[#1A56DB] mt-0.5">{formatRupiah(dayProfit)}</div>
+            </div>
+          </div>
+          {dayTransactions.length === 0 ? (
+            <p className="text-[11px] text-[#9BA3BC] font-medium text-center py-2">Tidak ada transaksi pada hari ini</p>
+          ) : (
+            <div className="flex flex-col gap-1.5 max-h-[200px] overflow-y-auto scrollbar-hide">
+              {dayTransactions.map(t => (
+                <div key={t.id} className="flex items-center justify-between gap-2 bg-[#F8F9FC] rounded-lg px-2.5 py-1.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${t.type === 'OUT' ? 'bg-[#dcfce7]' : 'bg-[#fee2e2]'}`}>
+                      {t.type === 'OUT'
+                        ? <ArrowUpRight size={12} className="text-[#16a34a]" strokeWidth={2.5} />
+                        : <ArrowDownLeft size={12} className="text-[#ef4444]" strokeWidth={2.5} />}
+                    </div>
+                    <span className="text-[11px] font-bold text-[#1A1F3A] truncate">{t.productName} ×{t.qty}</span>
+                  </div>
+                  <span className={`text-[11px] font-extrabold shrink-0 ${t.type === 'OUT' ? 'text-[#16a34a]' : 'text-[#ef4444]'}`}>
+                    {t.type === 'OUT' ? '+' : '-'}{formatRupiah(Math.abs(t.totalPrice))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
