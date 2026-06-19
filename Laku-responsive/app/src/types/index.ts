@@ -79,6 +79,8 @@ export interface StoreSettings {
   receiptNote: string; // catatan/ucapan di kaki struk
   initialCash: number; // saldo awal kas
   lowStockThreshold: number; // batas stok dianggap "rendah"
+  notifLowStock: boolean; // tampilkan notifikasi stok rendah/habis
+  notifTarget: boolean; // tampilkan notifikasi target tercapai
   currency: string;
   darkMode: boolean;
 }

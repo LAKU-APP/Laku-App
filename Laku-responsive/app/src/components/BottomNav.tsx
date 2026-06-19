@@ -15,7 +15,7 @@ export default function BottomNav() {
 
   return (
    <nav
-  className="shrink-0 bg-white border-t border-[#EEF0F6] z-50 w-full"
+  className="shrink-0 bg-white z-50 w-full"
   style={{
     boxShadow: '0 -4px 24px rgba(26,79,214,0.08)',
     paddingBottom: 'env(safe-area-inset-bottom, 0px)',
@@ -76,9 +76,6 @@ export default function BottomNav() {
               className="relative flex flex-col items-center justify-center gap-1 flex-1 min-w-0 px-1 active:scale-95 transition-transform duration-150 focus:outline-none pb-1"
               style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              {isActive && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-[#1A56DB] rounded-full" />
-              )}
               <div className={`relative transition-all duration-200 ${isActive ? 'scale-110' : 'scale-100'}`}>
                 <Icon
                   size={22}

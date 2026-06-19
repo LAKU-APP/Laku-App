@@ -210,6 +210,8 @@ function NotificationList({ notifications, onMarkRead, onMarkAllRead, onClearAll
   onClearAll: () => void;
 }) {
   const unread = notifications.filter(n => !n.read).length;
+  // Notifikasi yang sedang dibuka penuh (klik untuk baca selengkapnya).
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (notifications.length === 0) {
     return (
@@ -238,18 +240,23 @@ function NotificationList({ notifications, onMarkRead, onMarkAllRead, onClearAll
         </div>
       </div>
 
-      {/* Notification items */}
+      {/* Notification items — klik untuk baca penuh & tandai sudah dibaca */}
       {notifications.map(n => {
         const Icon = notifIcon[n.type];
         const colorClass = notifColor[n.type];
         const time = new Date(n.createdAt);
         const timeStr = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+        const expanded = expandedId === n.id;
         return (
           <button
             key={n.id}
-            onClick={() => !n.read && onMarkRead(n.id)}
+            onClick={() => {
+              if (!n.read) onMarkRead(n.id);
+              setExpandedId(prev => (prev === n.id ? null : n.id));
+            }}
+            aria-expanded={expanded}
             className={`w-full text-left flex items-start gap-3 p-3 rounded-xl transition-all active:scale-[0.98] ${
-              n.read ? 'bg-[#F8F9FC] opacity-60' : 'bg-white card-shadow'
+              n.read ? 'bg-[#F8F9FC]' : 'bg-white card-shadow'
             }`}
           >
             <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${colorClass}`}>
@@ -257,11 +264,13 @@ function NotificationList({ notifications, onMarkRead, onMarkAllRead, onClearAll
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-[#1A1F3A] truncate">{n.title}</span>
+                <span className={`text-xs font-bold ${n.read ? 'text-[#3D4566]' : 'text-[#1A1F3A]'} ${expanded ? '' : 'truncate'}`}>{n.title}</span>
                 {!n.read && <div className="w-2 h-2 bg-[#1A56DB] rounded-full shrink-0" />}
               </div>
-              <p className="text-[11px] text-[#9BA3BC] font-medium mt-0.5 line-clamp-2">{n.message}</p>
-              <span className="text-[9px] text-[#DDE1EF] font-bold mt-1 block">{timeStr}</span>
+              <p className={`text-[11px] text-[#9BA3BC] font-medium mt-0.5 ${expanded ? '' : 'line-clamp-2'}`}>{n.message}</p>
+              <span className="text-[9px] text-[#DDE1EF] font-bold mt-1 block">
+                {timeStr}{!expanded && n.message.length > 60 ? ' · ketuk untuk baca' : ''}
+              </span>
             </div>
           </button>
         );

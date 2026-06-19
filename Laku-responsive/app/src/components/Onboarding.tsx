@@ -316,14 +316,16 @@ export default function Onboarding({ onComplete, userName }: OnboardingProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center"
+    <div className="fixed inset-0 z-[300] overflow-y-auto"
       style={{ background: 'linear-gradient(160deg, #0a1540 0%, #1340b8 50%, #1e6ef5 100%)' }}>
       {/* Background decorations */}
       <div className="absolute top-[-120px] right-[-120px] w-[380px] h-[380px] rounded-full border border-white/5 pointer-events-none" />
       <div className="absolute bottom-[-100px] left-[-100px] w-[300px] h-[300px] rounded-full border border-white/5 pointer-events-none" />
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full bg-[#1A56DB]/15 blur-[100px] pointer-events-none" />
 
-      <div className="relative z-10 w-full max-w-[420px] mx-4 flex flex-col items-center">
+      {/* Wrapper min-h-full + scroll: konten panjang tetap bisa di-scroll di layar pendek */}
+      <div className="relative z-10 min-h-full flex items-center justify-center p-4">
+      <div className="relative w-full max-w-[420px] flex flex-col items-center">
         {/* Skip button */}
         {!isLast && (
           <button onClick={onComplete}
@@ -333,7 +335,7 @@ export default function Onboarding({ onComplete, userName }: OnboardingProps) {
         )}
 
         {/* Progress dots */}
-        <div className="flex gap-1.5 mb-8">
+        <div className="flex gap-1.5 mb-6">
           {steps.map((_, i) => (
             <div key={i} className={`h-1 rounded-full transition-all duration-300 ${
               i === currentStep ? 'w-6 bg-white' :
@@ -342,9 +344,14 @@ export default function Onboarding({ onComplete, userName }: OnboardingProps) {
           ))}
         </div>
 
+        {/* Area tinggi-TETAP: tombol navigasi selalu di posisi yang sama tiap slide.
+            Konten yang lebih tinggi men-scroll di dalam area, bukan mendorong tombol. */}
+        <div className="w-full overflow-y-auto scrollbar-hide" style={{ height: 'min(64vh, 500px)' }}>
+        <div className="min-h-full flex flex-col items-center justify-center text-center gap-5">
+
         {/* Step icon */}
         <div key={`icon-${currentStep}-${direction}`}
-          className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5 animate-fade-up"
+          className="w-16 h-16 rounded-2xl flex items-center justify-center animate-fade-up"
           style={{ background: `linear-gradient(135deg, var(--tw-gradient-from), var(--tw-gradient-to))` }}>
           <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${step.iconBg} flex items-center justify-center shadow-lg`}
             style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
@@ -353,7 +360,7 @@ export default function Onboarding({ onComplete, userName }: OnboardingProps) {
         </div>
 
         {/* Content */}
-        <div key={`content-${currentStep}-${direction}`} className="text-center mb-6 animate-fade-up" style={{ animationDelay: '0.05s' }}>
+        <div key={`content-${currentStep}-${direction}`} className="text-center animate-fade-up" style={{ animationDelay: '0.05s' }}>
           <h2 className="text-xl font-extrabold text-white mb-1.5 tracking-tight">
             {isFirst && userName ? `Halo, ${userName}! 👋` : step.title}
           </h2>
@@ -362,7 +369,7 @@ export default function Onboarding({ onComplete, userName }: OnboardingProps) {
         </div>
 
         {/* Visual / Setup interaktif */}
-        <div key={`visual-${currentStep}-${direction}`} className="mb-6 w-full flex justify-center animate-fade-up" style={{ animationDelay: '0.1s' }}>
+        <div key={`visual-${currentStep}-${direction}`} className="w-full flex justify-center animate-fade-up" style={{ animationDelay: '0.1s' }}>
           {step.id === 'setup-store' ? (
             <div className="w-full max-w-[300px] flex flex-col gap-3">
               <SetupInput icon={Store} label="Nama Toko" value={storeName} onChange={setStoreName} placeholder="Warung Bu Sri" autoFocus />
@@ -400,13 +407,16 @@ export default function Onboarding({ onComplete, userName }: OnboardingProps) {
         </div>
 
         {/* Tip */}
-        <div key={`tip-${currentStep}`} className="bg-white/8 border border-white/10 rounded-xl px-4 py-2.5 mb-8 max-w-[340px] animate-fade-up"
+        <div key={`tip-${currentStep}`} className="bg-white/8 border border-white/10 rounded-xl px-4 py-2.5 max-w-[340px] animate-fade-up"
           style={{ animationDelay: '0.15s', backgroundColor: 'rgba(255,255,255,0.08)' }}>
           <p className="text-xs text-white/60 font-medium text-center">{step.tip}</p>
         </div>
+        </div>
+        </div>
+        {/* /Area tinggi-tetap */}
 
         {/* Navigation buttons */}
-        <div className="flex items-center gap-3 w-full max-w-[340px]">
+        <div className="flex items-center gap-3 w-full max-w-[340px] mt-6">
           {!isFirst && (
             <button onClick={goPrev}
               className="h-12 px-4 rounded-xl bg-white/10 border border-white/10 text-white font-bold text-sm flex items-center gap-1.5
@@ -438,6 +448,7 @@ export default function Onboarding({ onComplete, userName }: OnboardingProps) {
         <p className="text-[10px] text-white/25 font-medium mt-4">
           {currentStep + 1} dari {steps.length}
         </p>
+      </div>
       </div>
     </div>
   );

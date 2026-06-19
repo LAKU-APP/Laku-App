@@ -61,6 +61,8 @@ const defaultStoreSettings: StoreSettings = {
   receiptNote: 'Terima kasih telah berbelanja',
   initialCash: 1000000,
   lowStockThreshold: 5,
+  notifLowStock: true,
+  notifTarget: true,
   currency: 'IDR',
   darkMode: false,
 };
@@ -105,7 +107,8 @@ type AppAction =
   | { type: 'UPDATE_STORE_SETTINGS'; payload: Partial<StoreSettings> }
   | { type: 'ADD_CATEGORY'; payload: string }
   | { type: 'REMOVE_CATEGORY'; payload: string }
-  | { type: 'RESET_DATA'; payload: 'demo' | 'empty' };
+  | { type: 'RESET_DATA'; payload: 'demo' | 'empty' }
+  | { type: 'IMPORT_DATA'; payload: { products?: Product[]; transactions?: Transaction[]; receipts?: ReceiptSnapshot[]; categories?: string[] } };
 
 const initialState: AppState = {
   products: initialProducts,
@@ -209,6 +212,17 @@ function appReducer(state: AppState, action: AppAction): AppState {
         receipts: [],
         cart: [],
       };
+    case 'IMPORT_DATA': {
+      const p = action.payload;
+      return {
+        ...state,
+        products: Array.isArray(p.products) ? p.products : state.products,
+        transactions: Array.isArray(p.transactions) ? p.transactions : state.transactions,
+        receipts: Array.isArray(p.receipts) ? p.receipts : state.receipts,
+        categories: Array.isArray(p.categories) ? p.categories : state.categories,
+        cart: [],
+      };
+    }
     default:
       return state;
   }
@@ -264,42 +278,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Only generate if user is logged in and we haven't notified recently
     if (!state.user) return;
 
-    outOfStockItems.forEach(p => {
-      const exists = state.notifications.some(n => n.title === `Stok Habis: ${p.name}` && !n.read);
-      if (!exists) {
-        const notification: Notification = {
-          id: generateId(),
-          title: `Stok Habis: ${p.name}`,
-          message: `${p.name} sudah habis! Segera restok.`,
-          type: 'error',
-          read: false,
-          createdAt: new Date().toISOString(),
-        };
-        dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
-      }
-    });
+    if (state.storeSettings.notifLowStock) {
+      outOfStockItems.forEach(p => {
+        const exists = state.notifications.some(n => n.title === `Stok Habis: ${p.name}` && !n.read);
+        if (!exists) {
+          const notification: Notification = {
+            id: generateId(),
+            title: `Stok Habis: ${p.name}`,
+            message: `${p.name} sudah habis! Segera restok.`,
+            type: 'error',
+            read: false,
+            createdAt: new Date().toISOString(),
+          };
+          dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
+        }
+      });
 
-    lowStockItems.forEach(p => {
-      const exists = state.notifications.some(n => n.title === `Stok Rendah: ${p.name}` && !n.read);
-      if (!exists) {
-        const notification: Notification = {
-          id: generateId(),
-          title: `Stok Rendah: ${p.name}`,
-          message: `${p.name} tinggal ${p.stock} unit. Pertimbangkan untuk restok.`,
-          type: 'warning',
-          read: false,
-          createdAt: new Date().toISOString(),
-        };
-        dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
-      }
-    });
+      lowStockItems.forEach(p => {
+        const exists = state.notifications.some(n => n.title === `Stok Rendah: ${p.name}` && !n.read);
+        if (!exists) {
+          const notification: Notification = {
+            id: generateId(),
+            title: `Stok Rendah: ${p.name}`,
+            message: `${p.name} tinggal ${p.stock} unit. Pertimbangkan untuk restok.`,
+            type: 'warning',
+            read: false,
+            createdAt: new Date().toISOString(),
+          };
+          dispatch({ type: 'ADD_NOTIFICATION', payload: notification });
+        }
+      });
+    }
 
     // Cek apakah target laba harian sudah tercapai (laba kotor hari ini).
     const today = new Date().toISOString().split('T')[0];
     const todayTransactions = state.transactions.filter(t => t.createdAt.startsWith(today));
     const todayProfit = calcGrossProfit(todayTransactions, state.products);
 
-    if (todayProfit >= state.dailyTarget && state.dailyTarget > 0) {
+    if (state.storeSettings.notifTarget && todayProfit >= state.dailyTarget && state.dailyTarget > 0) {
       const exists = state.notifications.some(n => n.title === 'Target Tercapai! 🎉' && n.createdAt.startsWith(today));
       if (!exists) {
         const notification: Notification = {
@@ -314,7 +330,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.products, state.transactions, state.user, state.dailyTarget, state.storeSettings.lowStockThreshold]);
+  }, [state.products, state.transactions, state.user, state.dailyTarget, state.storeSettings.lowStockThreshold, state.storeSettings.notifLowStock, state.storeSettings.notifTarget]);
 
   // Apply dark mode
   useEffect(() => {

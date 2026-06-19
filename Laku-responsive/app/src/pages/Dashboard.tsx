@@ -198,7 +198,7 @@ export default function Dashboard() {
 
   if (isMobile) {
     return (
-      <div className="flex-1 overflow-y-auto scrollbar-hide flex flex-col gap-3 px-4 pt-3 pb-24 w-full overscroll-contain">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-3 px-4 pt-3 pb-24 w-full overscroll-contain">
         {/* Welcome Header */}
         <div className="flex justify-between items-start animate-fade-up animate-delay-1">
           <div>
@@ -329,7 +329,7 @@ export default function Dashboard() {
 
   // Desktop layout
   return (
-    <div className="flex-1 overflow-y-auto scrollbar-hide flex flex-col gap-5 px-6 py-6">
+    <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-5 px-6 py-6">
       {/* Top row: Laba+Target full width + 2 stat cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="col-span-1">

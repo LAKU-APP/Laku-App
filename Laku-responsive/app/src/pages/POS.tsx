@@ -515,7 +515,7 @@ export default function POS() {
   if (isMobile) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto scrollbar-hide px-4 pt-4 pb-2">
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-4 pt-4 pb-2">
           <div className="relative mb-3.5">
             <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9BA3BC]" />
             <input type="text" placeholder="Cari produk..." value={searchQuery}
@@ -540,14 +540,14 @@ export default function POS() {
   return (
     <div className="flex-1 flex gap-6 px-6 py-6 overflow-hidden">
       {/* Product selection */}
-      <div className="flex-1 flex flex-col gap-4 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9BA3BC]" />
           <input type="text" placeholder="Cari produk..." value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full h-11 pl-9 pr-4 bg-white rounded-xl text-sm font-medium text-[#1A1F3A] placeholder:text-[#9BA3BC] outline-none focus:ring-2 focus:ring-[#1A56DB]/30 card-shadow transition-shadow" />
         </div>
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide">
           {productGrid}
           {filteredProducts.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
