@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import Splash from '@/components/Splash';
-import TopNav from '@/components/TopNav';
-import BottomNav from '@/components/BottomNav';
-import SideNav from '@/components/SideNav';
-import Toast from '@/components/Toast';
-import Dashboard from '@/pages/Dashboard';
-import Products from '@/pages/Products';
-import POS from '@/pages/POS';
-import Records from '@/pages/Records';
-import Insights from '@/pages/Insights';
-import Settings from '@/pages/Settings';
-import Login from '@/pages/Login';
-import Onboarding from '@/components/Onboarding';
-import { useIsMobile } from '@/hooks/use-mobile';
+import Splash from '@/components/branding/Splash';
+import TopNav from '@/components/navigation/TopNav';
+import BottomNav from '@/components/navigation/BottomNav';
+import SideNav from '@/components/navigation/SideNav';
+import Toast from '@/components/feedback/Toast';
+import Dashboard from '@/pages/Dashboard/DashboardPage';
+import Products from '@/pages/Products/ProductsPage';
+import POS from '@/pages/POS/POSPage';
+import Records from '@/pages/Records/RecordsPage';
+import Insights from '@/pages/Insights/InsightsPage';
+import Settings from '@/pages/Settings/SettingsPage';
+import Login from '@/pages/Auth/LoginPage';
+import Onboarding from '@/pages/Onboarding/OnboardingPage';
+import { useIsMobile } from '@/hooks/useMobile';
 
 function AppContent() {
   const { state, completeOnboarding } = useApp();
@@ -25,7 +25,7 @@ function AppContent() {
 
   // Show onboarding for first-time users
   if (!state.hasSeenOnboarding) {
-    return <Onboarding onComplete={completeOnboarding} userName={state.user.name} />;
+    return <Onboarding onComplete={completeOnboarding} userName={state.user.name} initialStoreName={state.user.name} />;
   }
 
   const renderPage = () => {
