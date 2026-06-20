@@ -2,6 +2,7 @@ import { useApp } from '@/context/AppContext';
 import type { TabType } from '@/types';
 import { LayoutDashboard, Package, Calculator, Receipt, BarChart3, Settings } from 'lucide-react';
 import LakuLogo from '@/components/branding/LakuLogo';
+import LakuWordmark from '@/components/branding/LakuWordmark';
 import { useIsTablet } from '@/hooks/useMobile';
 
 const tabs: { key: TabType; label: string; icon: React.ElementType; desc: string }[] = [
@@ -25,12 +26,10 @@ export default function SideNav() {
       >
         {/* Logo */}
         <div className={`flex items-center gap-3 border-b border-[#EEF0F6] ${isTablet ? 'justify-center px-0 py-5' : 'px-5 py-5'}`}>
-          <div className="w-10 h-10 bg-gradient-to-br from-[#1A56DB] to-[#1340b8] rounded-xl flex items-center justify-center shrink-0 shadow-md">
-            <LakuLogo size={22} className="text-white" />
-          </div>
+          <LakuLogo size={40} className="shrink-0" style={{ filter: 'drop-shadow(0 4px 12px rgba(23,66,200,0.35))' }} />
           {!isTablet && (
             <div>
-              <div className="text-[#1A1F3A] font-extrabold text-base leading-tight tracking-tight">LAKU</div>
+              <div className="font-extrabold text-base leading-tight tracking-tight"><LakuWordmark aku="#1A1F3A" /></div>
               <div className="text-[#9BA3BC] text-[10px] font-semibold leading-tight">Warung Digital</div>
             </div>
           )}

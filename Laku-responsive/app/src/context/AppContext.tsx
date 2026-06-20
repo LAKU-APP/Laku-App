@@ -61,7 +61,7 @@ interface AppState {
   cart: CartItem[];
   activeTab: TabType;
   toast: ToastState;
-  user?: { id: string; name: string; email: string; image?: string } | null;
+  user?: { id: string; name: string; email: string; phone?: string; image?: string } | null;
   dailyTarget: number;
   notifications: Notification[];
   hasSeenOnboarding: boolean;
@@ -82,8 +82,8 @@ type AppAction =
   | { type: 'CLEAR_CART' }
   | { type: 'SHOW_TOAST'; payload: string }
   | { type: 'HIDE_TOAST' }
-  | { type: 'SET_USER'; payload: { id: string; name: string; email: string; image?: string } }
-  | { type: 'UPDATE_USER'; payload: { name?: string; email?: string; image?: string } }
+  | { type: 'SET_USER'; payload: { id: string; name: string; email: string; phone?: string; image?: string } }
+  | { type: 'UPDATE_USER'; payload: { name?: string; email?: string; phone?: string; image?: string } }
   | { type: 'SET_DAILY_TARGET'; payload: number }
   | { type: 'ADD_NOTIFICATION'; payload: Notification }
   | { type: 'MARK_NOTIFICATION_READ'; payload: string }
@@ -220,9 +220,9 @@ interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
   showToast: (message: string) => void;
-  login: (user: { id: string; name: string; email: string; image?: string }) => void;
+  login: (user: { id: string; name: string; email: string; phone?: string; image?: string }) => void;
   logout: () => void;
-  updateUser: (updates: { name?: string; email?: string; image?: string }) => void;
+  updateUser: (updates: { name?: string; email?: string; phone?: string; image?: string }) => void;
   setDailyTarget: (target: number) => void;
   addNotification: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
   completeOnboarding: () => void;
@@ -334,7 +334,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => dispatch({ type: 'HIDE_TOAST' }), 2200);
   }, []);
 
-  const login = useCallback((user: { id: string; name: string; email: string; image?: string }) => {
+  const login = useCallback((user: { id: string; name: string; email: string; phone?: string; image?: string }) => {
     writeStorage(STORAGE_KEYS.user, user);
     dispatch({ type: 'SET_USER', payload: user });
   }, []);
@@ -345,7 +345,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'LOGOUT' });
   }, []);
 
-  const updateUser = useCallback((updates: { name?: string; email?: string; image?: string }) => {
+  const updateUser = useCallback((updates: { name?: string; email?: string; phone?: string; image?: string }) => {
     if (!state.user) return;
     writeStorage(STORAGE_KEYS.user, { ...state.user, ...updates });
     dispatch({ type: 'UPDATE_USER', payload: updates });
@@ -371,7 +371,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const completeOnboarding = useCallback(() => {
     writeStorage(STORAGE_KEYS.onboarding, true);
     // Catat agar saat user ini login lagi nanti tidak diminta onboarding ulang.
-    if (state.user?.email) void apiCompleteOnboarding(state.user.email);
+    // Pakai email ATAU nomor HP (akun bisa terdaftar lewat salah satunya).
+    const accountKey = state.user?.email || state.user?.phone;
+    if (accountKey) void apiCompleteOnboarding(accountKey);
     dispatch({ type: 'SET_ONBOARDING_COMPLETE' });
   }, [state.user]);
 

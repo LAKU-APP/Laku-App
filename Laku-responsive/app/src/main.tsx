@@ -14,3 +14,11 @@ createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </StrictMode>,
 )
+
+// Daftarkan service worker hanya di build produksi (hindari bentrok dengan HMR
+// saat dev). Path mengikuti base Vite. Lihat public/sw.js (network-first).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {});
+  });
+}

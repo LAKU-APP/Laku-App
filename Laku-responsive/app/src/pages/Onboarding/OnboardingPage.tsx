@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Package, Calculator, Receipt, BarChart3,
   ChevronRight, ChevronLeft, Sparkles, ArrowRight,
-  Target, TrendingUp, Download, ShoppingCart, Store, Phone, User
+  Target, TrendingUp, Download, ShoppingCart, Store, User
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatRupiah } from '@/utils/currency';
@@ -82,7 +82,7 @@ const steps = [
     iconBg: 'from-[#1A56DB] to-[#0B3A8D]',
     title: 'Atur Profil Toko',
     subtitle: 'Biar struk kamu tampil profesional',
-    description: 'Isi nama dan nomor toko. Nama ini akan muncul di struk penjualan. Semua bisa diubah lagi kapan saja di Pengaturan.',
+    description: 'Isi nama toko. Nama ini akan muncul di struk penjualan, dan bisa diubah lagi kapan saja di Pengaturan.',
     tip: '💡 Boleh dikosongkan dulu, isi nanti juga bisa',
     visual: 'setup-store',
     interactive: true,
@@ -277,7 +277,7 @@ function StepVisual({ visual }: { visual: string }) {
 }
 
 export default function Onboarding({ onComplete, userName, initialStoreName }: OnboardingProps) {
-  const { updateStoreSettings, setDailyTarget } = useApp();
+  const { state, updateStoreSettings, setDailyTarget } = useApp();
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
 
@@ -288,7 +288,6 @@ export default function Onboarding({ onComplete, userName, initialStoreName }: O
   // Data setup yang diisi pengguna baru selama onboarding.
   const [ownerName, setOwnerName] = useState(pendingUsername || userName || '');
   const [storeName, setStoreName] = useState(pendingStoreName || initialStoreName || userName || '');
-  const [storePhone, setStorePhone] = useState('');
   const [dailyTarget, setDailyTargetInput] = useState('200000');
 
   const step = steps[currentStep];
@@ -300,7 +299,14 @@ export default function Onboarding({ onComplete, userName, initialStoreName }: O
   // tersimpan walau pengguna melewati langkah berikutnya.
   const commitStep = () => {
     if (step.id === 'setup-store') {
-      updateStoreSettings({ storeName: storeName.trim(), storePhone: storePhone.trim() });
+      // Nomor HP dari pendaftaran otomatis jadi nomor toko (tidak perlu diisi ulang).
+      const phoneFromAccount = state.user?.phone
+        ? (state.user.phone.startsWith('62') ? '0' + state.user.phone.slice(2) : state.user.phone)
+        : '';
+      updateStoreSettings({
+        storeName: storeName.trim(),
+        ...(phoneFromAccount ? { storePhone: phoneFromAccount } : {}),
+      });
       // Bersihkan data sementara dari localStorage setelah diproses.
       try {
         localStorage.removeItem('pendingUsername');
@@ -385,7 +391,6 @@ export default function Onboarding({ onComplete, userName, initialStoreName }: O
             <div className="w-full max-w-[300px] flex flex-col gap-3">
               <SetupInput icon={User} label="Nama Pengguna" value={ownerName} onChange={setOwnerName} placeholder="Nama kamu" autoFocus />
               <SetupInput icon={Store} label="Nama Toko" value={storeName} onChange={setStoreName} placeholder="Warung Bu Sri" />
-              <SetupInput icon={Phone} label="Nomor HP (opsional)" value={storePhone} onChange={setStorePhone} placeholder="0812-3456-7890" type="tel" />
             </div>
           ) : step.id === 'setup-target' ? (
             <div className="w-full max-w-[300px] flex flex-col gap-3">
