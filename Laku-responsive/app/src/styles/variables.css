@@ -1,0 +1,40 @@
+/* variables.css — design tokens (CSS custom properties) untuk seluruh app. */
+:root {
+  --background: 214 45% 97%;
+  --foreground: 224 44% 16%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 224 80% 47%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 215 36% 94%;
+  --secondary-foreground: 224 44% 16%;
+  --muted: 215 36% 94%;
+  --muted-foreground: 220 9% 46%;
+  --accent: 24 95% 53%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 216 32% 89%;
+  --input: 216 32% 89%;
+  --ring: 224 80% 47%;
+  --radius: 0.75rem;
+
+  --laku-blue: #1A56DB;
+  --laku-blue-dark: #0B3A8D;
+  --laku-blue-light: #E8F1FF;
+  --laku-orange: #B45309;
+  --laku-orange-light: #FFF4E8;
+  --laku-bg: #F5F8FC;
+  --laku-gray-50: #F8F9FC;
+  --laku-gray-100: #EEF0F6;
+  --laku-gray-200: #DDE1EF;
+  --laku-gray-400: #9BA3BC;
+  --laku-gray-700: #3D4566;
+  --laku-gray-900: #1A1F3A;
+  --laku-green: #22c55e;
+  --laku-red: #ef4444;
+  --laku-shadow-card: 0 8px 24px rgba(15, 46, 92, 0.08);
+  --laku-shadow-lg: 0 16px 40px rgba(15, 46, 92, 0.14);
+}

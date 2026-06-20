@@ -1,0 +1,16 @@
+/* themes.css — placeholder tema (light/dark).
+ *
+ * Catatan: `darkMode` sudah ada di StoreSettings dan AppContext menamb/menghapus
+ * class `dark` di <html>. Namun UI saat ini memakai warna hex langsung (bukan
+ * token CSS), jadi override `.dark` belum berdampak penuh. Saat dark mode benar-
+ * benar diaktifkan, definisikan ulang token warna di sini, mis:
+ *
+ *   .dark {
+ *     --background: 222 47% 11%;
+ *     --foreground: 0 0% 98%;
+ *     ...
+ *   }
+ */
+.dark {
+  /* TODO: override CSS variables untuk tema gelap di sini */
+}

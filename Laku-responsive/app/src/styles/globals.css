@@ -1,0 +1,100 @@
+/* globals.css — entry CSS aplikasi (di-import dari main.tsx).
+ * Urutan penting: @import dulu, lalu @tailwind, lalu override custom SETELAH
+ * @tailwind utilities (mis. .transition-* yang sengaja menimpa util Tailwind). */
+@import './variables.css';
+@import './themes.css';
+@import './animations.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+  html {
+    height: 100%;
+    height: 100dvh;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    height: 100%;
+    height: 100dvh;
+  }
+  #root {
+    height: 100%;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .neumorphic-btn {
+    background: linear-gradient(145deg, #d0d8e8, #b8c4d8);
+    box-shadow: 6px 6px 16px rgba(0,0,0,0.35), -4px -4px 10px rgba(255,255,255,0.2), inset 0 2px 4px rgba(255,255,255,0.3);
+  }
+  .neumorphic-btn:active {
+    box-shadow: 3px 3px 10px rgba(0,0,0,0.4), -2px -2px 6px rgba(255,255,255,0.15), inset 2px 2px 6px rgba(0,0,0,0.15);
+  }
+  .card-shadow {
+    box-shadow: 0 8px 24px rgba(15, 46, 92, 0.08);
+  }
+  .card-shadow-hover {
+    box-shadow: 0 12px 30px rgba(15, 46, 92, 0.12);
+  }
+  .stat-blue-shadow {
+    box-shadow: 0 14px 32px rgba(26,86,219,0.26);
+  }
+  .stat-navy-shadow {
+    box-shadow: 0 14px 32px rgba(23,37,84,0.24);
+  }
+  .stat-orange-shadow {
+    box-shadow: 0 12px 28px rgba(180,83,9,0.18);
+  }
+}
+
+/* Desktop scrollbar */
+@media (min-width: 768px) {
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #DDE1EF; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #9BA3BC; }
+}
+
+/* Smooth transitions — sengaja didefinisikan SETELAH @tailwind utilities agar
+   menimpa util bawaan Tailwind. DO NOT pindah ke atas / ke file @import. */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.22,1,0.36,1);
+  transition-duration: 220ms;
+}
+.transition-colors {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.22,1,0.36,1);
+  transition-duration: 200ms;
+}
+.transition-transform {
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.22,1,0.36,1);
+  transition-duration: 180ms;
+}
+.transition-smooth {
+  transition-property: transform, opacity, background-color, color, border-color, box-shadow;
+  transition-timing-function: cubic-bezier(0.22,1,0.36,1);
+  transition-duration: 220ms;
+}

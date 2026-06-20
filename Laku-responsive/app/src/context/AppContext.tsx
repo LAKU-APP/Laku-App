@@ -1,22 +1,10 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 import type { Product, Transaction, CartItem, TabType, ToastState, Notification, ReceiptSnapshot, StoreSettings } from '@/types';
-import { clearToken, apiCompleteOnboarding } from '@/lib/api';
-import { readStorage, writeStorage, removeStorage } from '@/lib/storage';
-import { calcGrossProfit } from '@/lib/finance';
-import { generateId } from '@/lib/utils';
-
-// Kunci localStorage — dikumpulkan di satu tempat agar tidak ada typo string.
-const STORAGE_KEYS = {
-  user: 'user',
-  dailyTarget: 'dailyTarget',
-  onboarding: 'hasSeenOnboarding',
-  storeSettings: 'storeSettings',
-  categories: 'categories',
-  products: 'products',
-  transactions: 'transactions',
-  receipts: 'receipts',
-  cart: 'cart',
-} as const;
+import { clearToken, apiCompleteOnboarding } from '@/services/auth/authService';
+import { readStorage, writeStorage, removeStorage } from '@/services/storage/storage';
+import { calcGrossProfit } from '@/utils/currency';
+import { generateId } from '@/utils/helpers';
+import { STORAGE_KEYS } from '@/constants/storageKeys';
 
 // Helper: generate ISO date string relative to today
 function daysAgo(n: number): string {

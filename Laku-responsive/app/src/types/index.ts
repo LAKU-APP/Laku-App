@@ -1,34 +1,10 @@
-export interface Product {
-  id: string;
-  name: string;
-  price: number; // harga jual (sell price)
-  costPrice?: number; // harga beli (cost price) — for profit calculation
-  stock: number;
-  emoji: string;
-  image?: string; // URL atau base64 image
-  category?: string; // kategori produk
-  createdAt: string;
-}
+// Barrel tipe data. Impor cukup dari `@/types`.
+import type { ReactNode } from 'react';
 
-export interface Transaction {
-  id: string;
-  productId: string;
-  productName: string;
-  type: 'IN' | 'OUT';
-  qty: number;
-  totalPrice: number;
-  note?: string;
-  paymentMethod?: 'cash' | 'transfer' | 'qris';
-  discount?: number; // nominal diskon
-  createdAt: string;
-}
-
-export interface CartItem {
-  productId: string;
-  productName: string;
-  price: number;
-  qty: number;
-}
+export * from './auth';
+export * from './user';
+export * from './product';
+export * from './transaction';
 
 export type TabType = 'dashboard' | 'products' | 'pos' | 'records' | 'insights' | 'settings';
 
@@ -49,7 +25,7 @@ export interface Notification {
 export interface ModalState {
   open: boolean;
   title: string;
-  content: React.ReactNode;
+  content: ReactNode;
 }
 
 export interface DashboardStats {
@@ -58,29 +34,4 @@ export interface DashboardStats {
   todayRevenue: number;
   todayExpense: number;
   targetProfit: number;
-}
-
-export interface ReceiptSnapshot {
-  id: string;
-  storeName: string;
-  createdAt: string;
-  items: { productId: string; productName: string; price: number; qty: number }[];
-  total: number;
-  discount?: number;
-  paymentMethod?: 'cash' | 'transfer' | 'qris';
-  cashPaid?: number;
-  change?: number;
-}
-
-export interface StoreSettings {
-  storeName: string;
-  storeAddress: string;
-  storePhone: string; // no. HP toko — tampil di struk
-  receiptNote: string; // catatan/ucapan di kaki struk
-  initialCash: number; // saldo awal kas
-  lowStockThreshold: number; // batas stok dianggap "rendah"
-  notifLowStock: boolean; // tampilkan notifikasi stok rendah/habis
-  notifTarget: boolean; // tampilkan notifikasi target tercapai
-  currency: string;
-  darkMode: boolean;
 }
