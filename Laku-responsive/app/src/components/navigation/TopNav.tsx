@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Bell, User, Mail, Camera, X, Check, AlertTriangle, Info, CheckCircle, XCircle, Settings } from 'lucide-react';
 import ModalSheet from '@/components/modals/ModalSheet';
+import LakuWordmark from '@/components/branding/LakuWordmark';
 
 const tabTitles: Record<string, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Selamat datang kembali' },
@@ -77,7 +78,7 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
           <div className="absolute right-[-30px] top-[-30px] w-32 h-32 rounded-full bg-white/5" />
           <div className="absolute left-[-20px] bottom-[-20px] w-24 h-24 rounded-full bg-white/5" />
           <div className="relative z-10">
-            <div className="text-white font-extrabold leading-tight tracking-tight" style={{ fontSize: 'clamp(16px, 5vw, 20px)' }}>LAKU</div>
+            <div className="font-extrabold leading-tight tracking-tight" style={{ fontSize: 'clamp(16px, 5vw, 20px)' }}><LakuWordmark aku="#FFFFFF" /></div>
             <div className="text-white/70 font-semibold leading-tight mt-0.5" style={{ fontSize: 'clamp(10px, 3vw, 12px)' }}>
               {tabTitles[state.activeTab]?.subtitle || 'Dashboard'}
             </div>

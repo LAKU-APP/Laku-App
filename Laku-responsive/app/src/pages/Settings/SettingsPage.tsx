@@ -1,13 +1,14 @@
 import { useRef, useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import {
-  Store, MapPin, Phone, MessageSquare, Wallet, Target, AlertTriangle,
+  Store, MapPin, Phone, Mail, MessageSquare, Wallet, Target, AlertTriangle,
   Tag, Plus, X, LogOut, Info, Database, RotateCcw, Trash2, ChevronDown,
   Bell, PackageX, Download, Upload,
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMobile';
 import { formatRupiah } from '@/utils/currency';
 import ModalSheet from '@/components/modals/ModalSheet';
+import { apiUpdateContact } from '@/services/auth/authService';
 
 type SectionId = 'profil' | 'operasional' | 'notifikasi' | 'kategori' | 'data' | 'akun';
 
@@ -17,8 +18,14 @@ function toAmount(value: string): number {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
+// Tampilkan nomor 62xxx sebagai 0xxx agar familiar bagi pengguna.
+function toLocalPhone(p?: string): string {
+  if (!p) return '';
+  return p.startsWith('62') ? '0' + p.slice(2) : p;
+}
+
 export default function Settings() {
-  const { state, dispatch, showToast, logout, updateStoreSettings, setDailyTarget } = useApp();
+  const { state, dispatch, showToast, logout, updateUser, updateStoreSettings, setDailyTarget } = useApp();
   const isMobile = useIsMobile();
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -38,6 +45,11 @@ export default function Settings() {
   const [newCategory, setNewCategory] = useState('');
   const [confirmReset, setConfirmReset] = useState<'demo' | 'empty' | null>(null);
 
+  // Kontak akun (email & nomor HP) — bisa diubah/ditambah di sini.
+  const [accEmail, setAccEmail] = useState(state.user?.email || '');
+  const [accPhone, setAccPhone] = useState(toLocalPhone(state.user?.phone));
+  const [savingContact, setSavingContact] = useState(false);
+
   const handleSave = () => {
     updateStoreSettings({
       storeName: storeName.trim(),
@@ -49,6 +61,24 @@ export default function Settings() {
     });
     setDailyTarget(toAmount(dailyTarget));
     showToast('Pengaturan tersimpan');
+  };
+
+  // Simpan email & nomor HP akun (memperbarui akun login, profil, & nomor toko).
+  const handleSaveContact = async () => {
+    setSavingContact(true);
+    try {
+      const res = await apiUpdateContact(
+        { email: state.user?.email, phone: state.user?.phone },
+        { email: accEmail, phone: accPhone },
+      );
+      updateUser({ email: res.email, phone: res.phone });
+      if (res.phone) updateStoreSettings({ storePhone: toLocalPhone(res.phone) });
+      showToast('Email & nomor diperbarui');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Gagal memperbarui kontak');
+    } finally {
+      setSavingContact(false);
+    }
   };
 
   const handleAddCategory = () => {
@@ -276,9 +306,24 @@ export default function Settings() {
             </div>
             <div className="min-w-0">
               <div className="text-sm font-bold text-[#1A1F3A] truncate">{state.user?.name || 'Pengguna'}</div>
-              <div className="text-xs font-medium text-[#9BA3BC] truncate">{state.user?.email}</div>
+              <div className="text-xs font-medium text-[#9BA3BC] truncate">{state.user?.email || toLocalPhone(state.user?.phone)}</div>
             </div>
           </div>
+          <Field label="Email" icon={Mail} hint={state.user?.email ? undefined : 'Belum ada email — tambahkan agar bisa login pakai email'}>
+            <input type="email" value={accEmail} onChange={e => setAccEmail(e.target.value)}
+              placeholder="email@domain.com" className={fieldClass} />
+          </Field>
+          <Field label="Nomor HP" icon={Phone} hint="Dipakai juga sebagai nomor toko di struk">
+            <input type="tel" inputMode="numeric" value={accPhone} onChange={e => setAccPhone(e.target.value)}
+              placeholder="0812-3456-7890" className={fieldClass} />
+          </Field>
+          <button
+            onClick={handleSaveContact}
+            disabled={savingContact}
+            className="w-full h-11 rounded-xl bg-[#e8f1ff] text-[#1A56DB] font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform hover:bg-[#d4e4fb] disabled:opacity-60"
+          >
+            {savingContact ? 'Menyimpan...' : 'Simpan Email & Nomor'}
+          </button>
         </Section>
 
         {/* Tombol simpan di paling bawah — menyimpan Profil Toko & Operasional */}

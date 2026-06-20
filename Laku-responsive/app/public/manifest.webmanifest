@@ -1,0 +1,17 @@
+{
+  "name": "LAKU — Stok & Kasir UMKM",
+  "short_name": "LAKU",
+  "description": "Aplikasi manajemen stok, kasir, dan insight untuk warung/UMKM.",
+  "lang": "id",
+  "start_url": "/Laku-App/",
+  "scope": "/Laku-App/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a1540",
+  "theme_color": "#1E50DC",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

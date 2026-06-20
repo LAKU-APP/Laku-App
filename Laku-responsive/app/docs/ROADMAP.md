@@ -13,9 +13,9 @@
 
 | Status | Jumlah | Keterangan |
 |--------|--------|------------|
-| ✅ Selesai | 18 | Fitur Critical, High, dan sebagian Medium/Low sudah jalan |
+| ✅ Selesai | 19 | Fitur Critical, High, dan sebagian Medium/Low sudah jalan |
 | 🟡 Sebagian | 1 | Keyboard shortcut (baru Esc-tutup-modal) |
-| ⬜ Belum | 5 | Skeleton & PWA (sengaja ditunda), dark mode toggle, pagination, i18n |
+| ⬜ Belum | 4 | Skeleton (ditunda), dark mode toggle, pagination, i18n |
 | 🔵 Future | 6 | Fitur scale-up bisnis (belum dikerjakan, memang lingkup lanjut) |
 
 ---
@@ -103,10 +103,19 @@ Dropdown urutan: Terbaru / Nama A-Z / Harga / Stok di `Products.tsx`.
 Bunyi konfirmasi (Web Audio) + getaran (`navigator.vibrate`) saat checkout berhasil,
 via `utils/feedback.ts`.
 
+**23. PWA Support (Install di HP)** — ✅ Selesai
+`manifest.webmanifest` + ikon (192/512/maskable, apple-touch, favicon dari aset
+`src/assets/logos`) + **service worker network-first** (`public/sw.js`, anti
+stale-cache, hanya aktif di produksi). Bisa di-install di Android & iOS.
+
 ### ➕ Bonus (di luar daftar awal)
 
+- **Logo & wordmark baru**: ikon dari `laku.svg`, wordmark "LAKU" (L `#1E50DC`,
+  "AKU" putih) font **Sora** dipakai konsisten (login, splash, sidenav, topnav).
 - **Validasi login** ditegakkan: password salah / email belum terdaftar kini ditolak
   (akun terdaftar tersimpan lokal di `services/auth/authService.ts`).
+- **Login email ATAU nomor HP**; onboarding selesai tersimpan di akun (anti-ulang);
+  email/HP bisa ditambah/diubah di Pengaturan → Akun.
 - **Logout** dipindah ke tombol yang selalu terlihat di paling bawah Pengaturan.
 - **Onboarding bertahap** untuk akun baru (`Onboarding.tsx`) dengan tinggi slide
   konsisten (anti layout-shift) + setup toko/target.
@@ -145,11 +154,6 @@ atau pagination (10–20/halaman).
 Sudah: `Esc` menutup modal (`ModalSheet.tsx`). Belum: `Ctrl+N` (tambah produk),
 `Ctrl+K` (search) sebagai global handler di `App.tsx`.
 
-**23. PWA Support (Install di HP)** — ⬜ Belum (sengaja ditunda)
-Belum ada `manifest.json` & service worker. Ditunda atas keputusan: service worker
-berisiko nge-cache bundle lama (bug "perubahan tak muncul"), dan butuh ikon PNG
-192/512 yang harus disediakan. Dikerjakan saat aset ikon & strategi cache siap.
-
 **24. Multi-language (i18n)** — ⬜ Belum
 Semua teks masih hardcoded Bahasa Indonesia. Belum ada struktur i18n.
 
@@ -178,6 +182,5 @@ Semua teks masih hardcoded Bahasa Indonesia. Belum ada struktur i18n.
    validasi password nyata (hashing), dan multi-device.
 2. **Skeleton states (#16)** — kerjakan bareng integrasi backend, saat data benar-benar
    async (sekarang ditunda karena data lokal instan).
-3. **PWA (#23)** — saat ikon PNG 192/512 tersedia & strategi cache service worker
-   sudah aman (sekarang ditunda agar tidak nge-cache bundle lama).
+3. **Dark mode (#18)** — perlu refactor warna hex ke token CSS dulu (lihat `styles/`).
 4. Sisanya (#18, #20, #21, #22, #24) bersifat polish dan bisa menyusul.
