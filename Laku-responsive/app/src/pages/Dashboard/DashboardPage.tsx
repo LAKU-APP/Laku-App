@@ -1,12 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import ModalSheet from '@/components/modals/ModalSheet';
 import { Wallet, Target, Check, X, Receipt, Store, CircleCheck, ArrowUpRight, ArrowDownLeft, Package, ShoppingCart } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMobile';
 import { calcRevenue, calcExpense, calcGrossProfit, calcCashOnHand, transactionProfit, formatRupiah } from '@/utils/currency';
+import Confetti from '@/components/feedback/Confetti';
+import { makeConfettiPieces, type ConfettiPiece } from '@/utils/confetti';
+import SmartTipsBanner from '@/components/feedback/SmartTipsBanner';
+import {
+  wasTargetCelebratedToday, markTargetCelebratedToday,
+  canChangeTargetToday, bumpTargetChangesToday, MAX_TARGET_CHANGES_PER_DAY,
+} from '@/utils/dailyLimits';
 
 export default function Dashboard() {
-  const { state, dispatch, setDailyTarget } = useApp();
+  const { state, dispatch, setDailyTarget, showToast } = useApp();
   const isMobile = useIsMobile();
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
@@ -25,12 +32,34 @@ export default function Dashboard() {
   const targetProgress = state.dailyTarget > 0 ? (todayProfit / state.dailyTarget) * 100 : 0;
   const targetReached = todayProfit >= state.dailyTarget && state.dailyTarget > 0;
 
+  // Konfeti dirayakan SEKALI per hari saat target tercapai (fallback bila konfeti
+  // belum sempat meledak di kasir — mis. target diturunkan dari Pengaturan).
+  // Kepingan dibuat di dalam effect (Math.random tidak boleh saat render).
+  const [confetti, setConfetti] = useState<ConfettiPiece[] | null>(null);
+  useEffect(() => {
+    if (!targetReached || wasTargetCelebratedToday()) return;
+    markTargetCelebratedToday();
+    // Perayaan fire-once saat kondisi data (target tercapai) pertama kali
+    // terpenuhi — memang harus dipicu dari effect, bukan saat render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setConfetti(makeConfettiPieces(46));
+    const t = setTimeout(() => setConfetti(null), 3200);
+    return () => clearTimeout(t);
+  }, [targetReached]);
+
   const handleSaveTarget = () => {
     const newTarget = parseInt(targetInput);
-    if (newTarget && newTarget > 0) {
-      setDailyTarget(newTarget);
-      setEditingTarget(false);
+    if (!newTarget || newTarget <= 0) return;
+    // Batasi penggantian target maks 2x/hari agar konfeti tetap sakral.
+    if (newTarget !== state.dailyTarget) {
+      if (!canChangeTargetToday()) {
+        showToast(`Ganti target maksimal ${MAX_TARGET_CHANGES_PER_DAY}x per hari`);
+        return;
+      }
+      bumpTargetChangesToday();
     }
+    setDailyTarget(newTarget);
+    setEditingTarget(false);
   };
 
   // CTA empty state: arahkan ke langkah berikutnya yang masuk akal —
@@ -147,23 +176,28 @@ export default function Dashboard() {
 
         {/* Edit target input */}
         {editingTarget && (
-          <div className="flex items-center gap-1.5 mb-3">
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={targetInput}
-              onChange={(e) => setTargetInput(e.target.value.replace(/\D/g, ''))}
-              placeholder="Masukkan target..."
-              className="flex-1 min-w-0 h-10 px-3 rounded-xl bg-white/20 text-white text-sm font-bold placeholder:text-white/40 outline-none focus:bg-white/30"
-              autoFocus
-            />
-            <button onClick={handleSaveTarget} className="w-10 h-10 rounded-xl bg-[#22c55e] flex items-center justify-center active:scale-95 shrink-0">
-              <Check size={16} className="text-white" strokeWidth={3} />
-            </button>
-            <button onClick={() => setEditingTarget(false)} className="w-10 h-10 rounded-xl bg-white/30 flex items-center justify-center active:scale-95 shrink-0">
-              <X size={16} className="text-white" strokeWidth={3} />
-            </button>
+          <div className="mb-3">
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={targetInput}
+                onChange={(e) => setTargetInput(e.target.value.replace(/\D/g, ''))}
+                placeholder="Masukkan target..."
+                className="flex-1 min-w-0 h-10 px-3 rounded-xl bg-white/20 text-white text-sm font-bold placeholder:text-white/40 outline-none focus:bg-white/30"
+                autoFocus
+              />
+              <button onClick={handleSaveTarget} className="w-10 h-10 rounded-xl bg-[#22c55e] flex items-center justify-center active:scale-95 shrink-0">
+                <Check size={16} className="text-white" strokeWidth={3} />
+              </button>
+              <button onClick={() => setEditingTarget(false)} className="w-10 h-10 rounded-xl bg-white/30 flex items-center justify-center active:scale-95 shrink-0">
+                <X size={16} className="text-white" strokeWidth={3} />
+              </button>
+            </div>
+            <p className="text-[10px] font-medium text-white/55 mt-1.5">
+              Maks {MAX_TARGET_CHANGES_PER_DAY}x ganti target per hari — biar konfetinya tetap sakral 🎉
+            </p>
           </div>
         )}
 
@@ -199,6 +233,7 @@ export default function Dashboard() {
   if (isMobile) {
     return (
       <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-3 px-4 pt-3 pb-24 w-full overscroll-contain">
+        {confetti && <Confetti pieces={confetti} />}
         {/* Welcome Header */}
         <div className="flex justify-between items-start animate-fade-up animate-delay-1">
           <div>
@@ -212,6 +247,11 @@ export default function Dashboard() {
           <div className="w-10 h-10 rounded-xl bg-white border border-[#E4EAF5] flex items-center justify-center card-shadow">
             <Store size={19} className="text-[#1A56DB]" strokeWidth={2.4} />
           </div>
+        </div>
+
+        {/* Smart Tips marquee */}
+        <div className="animate-fade-up animate-delay-1">
+          <SmartTipsBanner />
         </div>
 
         {/* Laba + Target */}
@@ -330,6 +370,13 @@ export default function Dashboard() {
   // Desktop layout
   return (
     <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide flex flex-col gap-5 px-6 py-6">
+      {confetti && <Confetti pieces={confetti} />}
+
+      {/* Smart Tips marquee */}
+      <div className="animate-fade-up animate-delay-1">
+        <SmartTipsBanner />
+      </div>
+
       {/* Top row: Laba+Target full width + 2 stat cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="col-span-1">

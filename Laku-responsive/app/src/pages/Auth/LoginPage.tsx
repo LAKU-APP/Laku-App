@@ -5,6 +5,7 @@ import { apiLogin, apiRegister, saveToken, isPhoneNumber } from '@/services/auth
 import { useIsMobile } from '@/hooks/useMobile';
 import LakuLogo from '@/components/branding/LakuLogo';
 import LakuWordmark from '@/components/branding/LakuWordmark';
+import LoginMascot from '@/components/branding/LoginMascot';
 
 // Sorotan fitur utama pada panel branding halaman login.
 const loginHighlights = [
@@ -132,6 +133,13 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
       : 'border-[#EEF0F6] bg-[#F8F9FC] hover:border-[#d4e4fb]'
     }`;
 
+  // Maskot menutup mata saat mengetik password (field password/konfirmasi fokus
+  // & disembunyikan), dan mengintip saat password ditampilkan.
+  const pwFieldActive = focusedField === 'password' || focusedField === 'confirm';
+  const pwShown = (focusedField === 'password' && showPass) || (focusedField === 'confirm' && showConfirmPass);
+  const mascotCovering = pwFieldActive && !pwShown;
+  const mascotPeeking = pwFieldActive && pwShown;
+
   const renderForm = (compact = false) => (
     <div
       style={{
@@ -140,7 +148,23 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
         transition: 'opacity 0.25s cubic-bezier(0.4,0,0.2,1), transform 0.25s cubic-bezier(0.4,0,0.2,1)',
       }}
     >
-      <div className={compact ? 'mb-3' : 'mb-6'}>
+      {/* Maskot interaktif */}
+      <div className="flex justify-center mb-2">
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full bg-[#1A56DB]/12 blur-xl scale-90" aria-hidden="true" />
+          <div className="relative">
+            <LoginMascot
+              covering={mascotCovering}
+              peeking={mascotPeeking}
+              error={!!error}
+              loading={loading}
+              size={compact ? 68 : 84}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className={`text-center ${compact ? 'mb-3' : 'mb-6'}`}>
         <h2 className={`font-extrabold text-[#1A1F3A] ${compact ? 'text-base' : 'text-xl'}`}>
           {mode === 'login' ? 'Masuk' : 'Buat Akun'}
         </h2>
@@ -302,23 +326,23 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
           background: 'linear-gradient(160deg, #0f1f5c 0%, #1A56DB 60%, #1e6ef5 100%)',
         }}
       >
-        <div className="fixed top-[-60px] right-[-60px] w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
-        <div className="fixed bottom-[-40px] left-[-40px] w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
+        <div className="fixed top-[-60px] right-[-60px] w-48 h-48 rounded-full bg-white/5 pointer-events-none animate-float" />
+        <div className="fixed bottom-[-40px] left-[-40px] w-36 h-36 rounded-full bg-white/5 pointer-events-none animate-float-slow" />
 
-        <div className="w-full max-w-[320px] relative z-10 py-6">
+        <div className="w-full max-w-[340px] relative z-10 py-7">
           {/* Logo */}
-          <div className="flex items-center gap-2.5 mb-5 animate-fade-up animate-delay-1">
-            <LakuLogo size={40} className="shrink-0" style={{ filter: 'drop-shadow(0 6px 16px rgba(0,0,0,0.25))' }} />
+          <div className="flex items-center justify-center gap-2.5 mb-5 animate-fade-up animate-delay-1">
+            <LakuLogo size={38} className="shrink-0" style={{ filter: 'drop-shadow(0 6px 16px rgba(0,0,0,0.25))' }} />
             <div>
-              <div className="font-extrabold text-base tracking-tight leading-none"><LakuWordmark aku="#FFFFFF" /></div>
-              <div className="text-white/50 text-[10px] font-medium mt-0.5">Manajemen Toko</div>
+              <div className="font-extrabold text-lg tracking-tight leading-none"><LakuWordmark aku="#FFFFFF" /></div>
+              <div className="text-white/55 text-[10px] font-medium mt-0.5">Warung digital untuk UMKM</div>
             </div>
           </div>
 
           {/* Form card */}
-          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-up animate-delay-2 transition-all duration-300 ease-out">
-            <div className="h-[3px] bg-gradient-to-r from-[#1A56DB] to-[#1340b8]" />
-            <div className="p-4">
+          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden animate-fade-up animate-delay-2 transition-all duration-300 ease-out">
+            <div className="h-1 bg-gradient-to-r from-[#1A56DB] via-[#3b82f6] to-[#1340b8]" />
+            <div className="p-5">
               {renderForm(true)}
             </div>
           </div>
@@ -348,17 +372,17 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
         className="flex-1 flex flex-col items-center justify-center relative overflow-hidden"
         style={{ background: 'linear-gradient(160deg, #0a1540 0%, #1340b8 100%)' }}
       >
-        {/* Geometric shapes */}
-        <div className="absolute top-[-160px] right-[-160px] w-[500px] h-[500px] rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute top-[-80px] right-[-80px] w-[320px] h-[320px] rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute bottom-[-140px] left-[-140px] w-[420px] h-[420px] rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute bottom-[-60px] left-[-60px] w-[240px] h-[240px] rounded-full border border-white/5 pointer-events-none" />
+        {/* Geometric shapes — mengambang halus (levitate) */}
+        <div className="absolute top-[-160px] right-[-160px] w-[500px] h-[500px] rounded-full border border-white/5 pointer-events-none animate-float-slow" />
+        <div className="absolute top-[-80px] right-[-80px] w-[320px] h-[320px] rounded-full border border-white/5 pointer-events-none animate-float" />
+        <div className="absolute bottom-[-140px] left-[-140px] w-[420px] h-[420px] rounded-full border border-white/5 pointer-events-none animate-float-fast" />
+        <div className="absolute bottom-[-60px] left-[-60px] w-[240px] h-[240px] rounded-full border border-white/5 pointer-events-none animate-float" />
         {/* Subtle glow */}
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-[#1A56DB]/20 blur-[80px] pointer-events-none" />
 
         <div className="relative z-10 flex flex-col items-center px-12">
           <LakuLogo size={84} className="mb-6" style={{ filter: 'drop-shadow(0 12px 28px rgba(0,0,0,0.3))' }} />
-          <div className="font-extrabold tracking-[0.15em] text-3xl mb-2"><LakuWordmark aku="#FFFFFF" /></div>
+          <div className="font-extrabold tracking-tight text-4xl mb-2"><LakuWordmark aku="#FFFFFF" /></div>
           <div className="text-white/50 text-sm font-medium mb-10 text-center">Warung digital untuk UMKM Indonesia</div>
 
           <div className="flex flex-col gap-3 w-[300px]">
@@ -385,7 +409,7 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
         <div className="w-full max-w-[340px] px-2 py-12">
           <div className="mb-8 flex items-center gap-2">
             <LakuLogo size={30} />
-            <div className="text-[11px] font-bold tracking-widest uppercase"><LakuWordmark aku="#1A1F3A" /></div>
+            <div className="text-sm font-extrabold tracking-tight"><LakuWordmark aku="#1A1F3A" /></div>
           </div>
 
           {renderForm(false)}
