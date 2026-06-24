@@ -1,49 +1,70 @@
-# Dokumentasi Struktur Path — Laku-responsive (app)
+# Peta Folder Singkat — Laku-responsive (app)
 
-Panduan singkat tentang folder dan file penting dalam folder `app`.
+> Versi ringkas untuk skim cepat. Untuk konteks lengkap (arsitektur, class
+> diagram, use case, alur auth) lihat [`CODEBASE_GUIDE.md`](./CODEBASE_GUIDE.md).
 
-## Root (app/)
-- `package.json` : dependensi dan skrip proyek.
-- `vite.config.ts` : konfigurasi bundler Vite.
-- `tailwind.config.js` : konfigurasi Tailwind CSS.
-- `postcss.config.js` : konfigurasi PostCSS.
-- `tsconfig.json`, `tsconfig.app.json` : konfigurasi TypeScript.
-- `index.html` : titik masuk HTML untuk aplikasi.
+## Root (`app/`)
+- `package.json`, `vite.config.ts` (base `/Laku-App/`, port 3000), `tailwind.config.js`,
+  `postcss.config.js`, `tsconfig.json`/`tsconfig.app.json`, `index.html`.
+- `docs/` — dokumentasi (folder ini).
+- `public/` — `manifest.webmanifest`, `sw.js` (service worker, prod only), ikon.
 
-## Sumber utama (app/src/)
-- `main.tsx` : bootstrap aplikasi (mount React).
-- `App.tsx` : root component aplikasi.
-- `index.css`, `App.css` : gaya global dan style utama.
+## `src/`
+- `main.tsx` — bootstrap: `StrictMode > ErrorBoundary > AppProvider > App`.
+- `App.tsx` — root component: splash → gate login → gate onboarding → layout + halaman aktif.
+- `styles/` — `globals.css`, `variables.css`, `themes.css`, `animations.css`.
 
-### Komponen (app/src/components/)
-- `TopNav.tsx`, `BottomNav.tsx`, `SideNav.tsx`, `StatusBar.tsx`, `Toast.tsx`, `ModalSheet.tsx`
-  - Komponen UI tingkat atas yang digunakan di halaman.
+### `src/context/`
+- `AppContext.tsx` — **state global aktif** (`useReducer`), satu-satunya sumber kebenaran data.
+- `AuthContext.tsx`, `ThemeContext.tsx` — scaffolding, **belum dipakai**.
 
-#### Komponen UI kecil (app/src/components/ui/)
-- Banyak komponen UI kecil yang dapat dipakai ulang, mis. `button.tsx`, `card.tsx`, `dialog.tsx`, `avatar.tsx`, dll.
-  - Gunakan folder ini untuk komponen presentasional / atomik.
+### `src/pages/` (satu subfolder per fitur)
+- `Auth/LoginPage.tsx` (login & register), `Auth/RegisterPage.tsx` (wrapper tipis)
+- `Onboarding/OnboardingPage.tsx`
+- `Dashboard/DashboardPage.tsx`
+- `Products/ProductsPage.tsx`, `ProductCard.tsx`, `ProductForm.tsx`
+- `POS/POSPage.tsx`, `Cart.tsx`, `Checkout.tsx`
+- `Records/RecordsPage.tsx`
+- `Insights/InsightsPage.tsx`
+- `Settings/SettingsPage.tsx`
 
-### Halaman (app/src/pages/)
-- `Dashboard.tsx` — halaman dashboard.
-- `Products.tsx` — halaman produk / katalog.
-- `POS.tsx` — halaman point-of-sale.
-- `Records.tsx`, `Insights.tsx`, `Login.tsx` — halaman lain.
+### `src/components/`
+- `navigation/` — `TopNav.tsx`, `SideNav.tsx`, `BottomNav.tsx`
+- `modals/` — `ModalSheet.tsx`
+- `feedback/` — `Toast.tsx`, `ErrorBoundary.tsx`
+- `branding/` — `Splash.tsx`, `LakuLogo.tsx`, `LakuWordmark.tsx`
+- `forms/`, `tables/` — kosong (`.gitkeep`), belum dipakai
+- `ui/` — ~40 komponen generic shadcn/Radix (`button.tsx`, `dialog.tsx`, `card.tsx`, dst.)
 
-### Context (app/src/context/)
-- `AppContext.tsx` : penyimpanan state global / context provider.
+### `src/services/`
+- `auth/authService.ts` — Demo Mode auth (register/login/onboarding/kontak akun, semua lokal).
+- `storage/storage.ts` — wrapper aman `localStorage` (`readStorage`/`writeStorage`/`removeStorage`).
+- `api/client.ts`, `api/endpoints.ts`, `api/interceptor.ts` — scaffolding fetch wrapper untuk backend nyata, belum terhubung.
+- `notification/`, `analytics/` — scaffolding no-op.
 
-### Hooks (app/src/hooks/)
-- `use-mobile.ts` : hook deteksi perangkat mobile.
+### `src/hooks/`
+- `useMobile.ts` — `useIsMobile`/`useIsTablet`/`useIsDesktop` (dipakai luas).
+- `useDebounce.ts`, `useLocalStorage.ts` — siap pakai, minim dipakai.
+- `useOnlineStatus.ts` — scaffolding, tidak dipakai.
 
-### Library/Util (app/src/lib/)
-- `utils.ts` : fungsi utilitas yang dipakai di beberapa modul.
+### `src/utils/`
+- `currency.ts` — **satu-satunya** sumber hitung uang (revenue/expense/profit/cash/format).
+- `date.ts`, `formatter.ts`, `helpers.ts` (`cn()`, `generateId()`, `parseNonNegativeInt()`), `feedback.ts` (haptic/sound), `string.ts`.
 
-### Tipe (app/src/types/)
-- `index.ts` : definisi type / interface TypeScript proyek.
+### `src/constants/`
+- `storageKeys.ts` — semua key `localStorage` (hindari typo string).
+- `routes.ts`, `roles.ts`, `permissions.ts` — scaffolding RBAC/router, belum ditegakkan di UI.
 
-## Catatan dan saran singkat
-- Jika ingin merapikan import paths, pertimbangkan menambahkan `paths` di `tsconfig.json` untuk alias seperti `@/components` => `src/components`.
-- Untuk dokumentasi lebih lanjut, buat `docs/` atau `README` terpisah per fitur.
+### `src/types/`
+- `auth.ts`, `user.ts`, `product.ts`, `transaction.ts`, `index.ts` (barrel, diimpor sebagai `@/types`).
 
----
-Dokumentasi ini dibuat otomatis — beri tahu saya bila mau saya tambahkan alias `tsconfig` atau commit file ini.
+## Yang **tidak** ada lagi (jangan dicari)
+- `src/lib/` (`api.ts`, `finance.ts`, `storage.ts`, `utils.ts`) — sudah dipecah ke `services/`, `utils/`, `types/`.
+- `pages/Login.tsx` tunggal — sekarang `pages/Auth/LoginPage.tsx` + `RegisterPage.tsx`.
+- `components/Onboarding.tsx` — sekarang `pages/Onboarding/OnboardingPage.tsx`.
+- `hooks/use-mobile.ts` — sekarang `hooks/useMobile.ts`.
+- `types/index.ts` sebagai satu-satunya file tipe — sekarang barrel yang re-export dari beberapa file tipe terpisah.
+- `src/sections/` — pernah muncul di output tooling awal (lihat `info.md`), tidak pernah dibuat di proyek ini.
+
+## Alias import
+`@/` → `src/` (lihat `tsconfig.json` / `vite.config.ts`), contoh: `@/context/AppContext`, `@/utils/currency`, `@/types`.

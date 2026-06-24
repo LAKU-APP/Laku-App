@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import type { Product, Transaction, CartItem, TabType, ToastState, Notification, ReceiptSnapshot, StoreSettings } from '@/types';
 import { clearToken, apiCompleteOnboarding } from '@/services/auth/authService';
 import { readStorage, writeStorage, removeStorage } from '@/services/storage/storage';
 import { calcGrossProfit } from '@/utils/currency';
 import { generateId } from '@/utils/helpers';
+import { notifySound } from '@/utils/feedback';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
 
 // Helper: generate ISO date string relative to today
@@ -328,6 +329,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.classList.remove('dark');
     }
   }, [state.storeSettings.darkMode]);
+
+  // Bunyikan suara saat ADA notifikasi baru masuk (stok rendah / target tercapai).
+  // Catatan: browser baru mengeluarkan suara setelah ada interaksi pengguna
+  // (kebijakan autoplay), jadi notifikasi paling awal saat boot bisa senyap.
+  const notifCountRef = useRef(state.notifications.length);
+  useEffect(() => {
+    if (state.notifications.length > notifCountRef.current) notifySound();
+    notifCountRef.current = state.notifications.length;
+  }, [state.notifications.length]);
 
   const showToast = useCallback((message: string) => {
     dispatch({ type: 'SHOW_TOAST', payload: message });

@@ -5,7 +5,10 @@ kasir (POS), catatan transaksi, dan insight bisnis. Dirancang responsif penuh da
 layar HP kecil (mis. iPhone SE) sampai desktop/iPad besar.
 
 Dokumen ini menjelaskan kondisi project **saat ini** berdasarkan source code aktual.
-Untuk kontrak endpoint backend, lihat `API.md`.
+Untuk kontrak endpoint backend, lihat `API.md`. Untuk ringkasan cepat + class
+diagram + use case + known issues (cocok untuk sesi AI/kontributor baru), lihat
+[`CODEBASE_GUIDE.md`](./CODEBASE_GUIDE.md) — dokumen ini berisi detail
+per-halaman/komponen yang lebih panjang.
 
 ---
 
@@ -54,33 +57,48 @@ Konfigurasi deploy (GitHub Pages):
 
 ## 3. Struktur Folder
 
+> Peta lengkap & lebih detail ada di [`PATHS.md`](./PATHS.md). Ringkasan:
+
 ```txt
 app/
-  API.md                     # kontrak backend
-  DOKUMENTASI_PENGERJAAN.md  # dokumen ini
+  docs/                      # dokumentasi (API.md, CODEBASE_GUIDE.md, dst.)
   vite.config.ts             # base '/Laku-App/', port 3000
   src/
-    main.tsx                 # entry: ErrorBoundary > AppProvider > App
+    main.tsx                 # entry: StrictMode > ErrorBoundary > AppProvider > App
     App.tsx                  # splash, gating login/onboarding, layout mobile vs desktop
-    index.css                # base style, animasi, util (.scrollbar-hide, dst.)
+    styles/                  # globals.css, variables.css, themes.css, animations.css
     context/
       AppContext.tsx         # state global (useReducer) + persistensi localStorage
+      AuthContext.tsx, ThemeContext.tsx   # scaffolding, belum dipakai
     pages/
-      Login.tsx  Dashboard.tsx  Products.tsx  POS.tsx
-      Records.tsx  Insights.tsx  Settings.tsx
+      Auth/LoginPage.tsx (+ RegisterPage.tsx)
+      Onboarding/OnboardingPage.tsx
+      Dashboard/DashboardPage.tsx
+      Products/ProductsPage.tsx (+ ProductCard.tsx, ProductForm.tsx)
+      POS/POSPage.tsx (+ Cart.tsx, Checkout.tsx)
+      Records/RecordsPage.tsx
+      Insights/InsightsPage.tsx
+      Settings/SettingsPage.tsx
     components/
-      Onboarding.tsx  Splash.tsx  LakuLogo.tsx  ErrorBoundary.tsx
-      TopNav.tsx  SideNav.tsx  BottomNav.tsx  ModalSheet.tsx  Toast.tsx
+      navigation/  TopNav.tsx SideNav.tsx BottomNav.tsx
+      modals/      ModalSheet.tsx
+      feedback/    Toast.tsx ErrorBoundary.tsx
+      branding/    Splash.tsx LakuLogo.tsx LakuWordmark.tsx
       ui/                    # komponen generic shadcn-style
+    services/
+      auth/authService.ts    # auth demo: register/login/onboarding/kontak akun
+      storage/storage.ts     # wrapper aman localStorage
+      api/, notification/, analytics/   # scaffolding, belum terhubung
     hooks/
-      use-mobile.ts          # useIsMobile / useIsTablet / useIsDesktop
-    lib/
-      api.ts                 # auth demo + helper token + status onboarding
-      finance.ts             # SATU sumber kebenaran perhitungan uang
-      storage.ts             # wrapper aman localStorage
-      utils.ts               # cn(), generateId()
+      useMobile.ts           # useIsMobile / useIsTablet / useIsDesktop
+      useDebounce.ts, useLocalStorage.ts, useOnlineStatus.ts
+    utils/
+      currency.ts            # SATU sumber kebenaran perhitungan uang
+      date.ts, formatter.ts, helpers.ts (cn(), generateId()), feedback.ts, string.ts
+    constants/
+      storageKeys.ts, routes.ts, roles.ts, permissions.ts
     types/
-      index.ts               # semua tipe data
+      auth.ts, user.ts, product.ts, transaction.ts, index.ts (barrel @/types)
 ```
 
 ---
@@ -124,13 +142,20 @@ Action penting:
 
 **Persistensi**: setiap slice (`products`, `transactions`, `receipts`, `cart`,
 `categories`, dan `user`, `dailyTarget`, `hasSeenOnboarding`, `storeSettings`)
-disimpan otomatis ke `localStorage` lewat `src/lib/storage.ts`
+disimpan otomatis ke `localStorage` lewat `src/services/storage/storage.ts`
 (`readStorage` / `writeStorage` / `removeStorage`). Saat boot, state dipulihkan
 dari `localStorage`; data contoh hanya muncul saat pertama kali dibuka.
 
+> `UPDATE_USER` payload-nya `{ name?, email?, phone?, image? }` — dipakai juga
+> oleh fitur ubah email/HP di Pengaturan → Akun (lihat §8 & §9.7).
+
 ---
 
-## 6. Model Data (`src/types/index.ts`)
+## 6. Model Data (`src/types/`)
+
+> `src/types/index.ts` adalah **barrel** yang re-export dari `auth.ts`, `user.ts`,
+> `product.ts`, `transaction.ts` — bukan satu file tipe tunggal. Impor lewat
+> `@/types`. Lihat juga class diagram lengkap di `CODEBASE_GUIDE.md`.
 
 ### Product
 `id, name, price (harga jual), costPrice? (harga modal/HPP), stock, category?,
@@ -157,7 +182,7 @@ notifLowStock, notifTarget, currency, darkMode`.
 
 ---
 
-## 7. Perhitungan Uang (`src/lib/finance.ts`)
+## 7. Perhitungan Uang (`src/utils/currency.ts`)
 
 Semua perhitungan uang dipusatkan di sini supaya konsisten di Dashboard, Records,
 dan Insights (menghilangkan "angka ajaib" lama seperti `laba = omzet × 0,2`).
@@ -179,59 +204,77 @@ dan Insights (menghilangkan "angka ajaib" lama seperti `laba = omzet × 0,2`).
 
 ### Alur (penting)
 ```
-User baru : Buat Akun → kembali ke Login → Login → Langkah pengenalan → Masuk aplikasi
-User lama : Login → Masuk aplikasi (onboarding dilewati)
+User baru : Buat Akun (email DAN/ATAU nomor HP) → kembali ke Login → Login
+            → Langkah pengenalan (nama toko; nomor HP auto-terisi dari akun)
+            → Masuk aplikasi
+User lama : Login (email ATAU nomor HP) → Masuk aplikasi (onboarding dilewati)
 ```
 
+- **Login & register menerima email ATAU nomor HP Indonesia** sebagai identifier
+  (`isPhoneNumber()` / `normalizePhone()` di `authService.ts` mendeteksi & menormalkan
+  ke format `62xxx`). Akun boleh dibuat dengan salah satu atau keduanya.
 - **Register tidak auto-login.** Setelah `apiRegister` sukses, UI kembali ke mode
-  **Login** dengan email terisi otomatis dan menampilkan toast "Akun berhasil
-  dibuat! Silakan login...". (`src/pages/Login.tsx`)
+  **Login** dengan identifier terisi otomatis dan menampilkan toast "Akun berhasil
+  dibuat! Silakan login...". (`src/pages/Auth/LoginPage.tsx`)
 - Saat login, response auth membawa `user.onboardingCompleted`:
   - `false` → `restartOnboarding()` (tampilkan langkah pengenalan).
-  - `true`  → `completeOnboarding()` (langsung masuk).
-- Saat onboarding selesai, `completeOnboarding()` menyimpan `hasSeenOnboarding=true`
-  dan memanggil `apiCompleteOnboarding(email)` agar login berikutnya tidak mengulang.
-- **Mode Demo (Admin)** selalu memutar ulang onboarding (`restartOnboarding()`),
-  jadi tombol demo masuk lewat langkah pengenalan dulu, bukan langsung ke aplikasi.
+  - `true`  → langsung masuk aplikasi.
+- **Status onboarding disimpan PADA akun terdaftar** (`StoredAccount.onboardingCompleted`,
+  key `registeredAccounts`), dicocokkan lewat email atau nomor HP — bukan lagi
+  daftar email terpisah. Saat onboarding selesai, `completeOnboarding()` menyimpan
+  `hasSeenOnboarding=true` dan memanggil `apiCompleteOnboarding(user.email || user.phone)`
+  agar login berikutnya (dengan identifier mana pun yang dipakai akun itu) tidak mengulang.
+- Pada langkah pengenalan, field nomor HP toko **tidak diminta ulang** — diisi otomatis
+  dari `state.user.phone` (lihat `OnboardingPage.tsx` → `commitStep()`).
+- **Mode Demo (Admin)** — tombol "Masuk Demo" selalu memutar ulang onboarding
+  (`restartOnboarding()`); login manual dengan kredensial demo memakai status
+  onboarding fallback (lihat di bawah).
+- **Pengaturan → Akun** kini bisa menambah/mengubah email & nomor HP akun yang
+  sedang login lewat `apiUpdateContact()` (validasi format + cek duplikat di akun
+  lain/akun demo). Nomor HP yang disimpan ikut disalin ke `storeSettings.storePhone`.
 
-### Demo Mode (`src/lib/api.ts`)
-Karena backend belum ada, auth berjalan lokal: `apiLogin` menerima kredensial apa
-pun (atau akun demo `admin@laku.id` / `admin123`). Status onboarding per-email
-dicatat di `localStorage` (key `onboardedEmails`) untuk mensimulasikan "user lama"
-vs "user baru". Token disimpan di key `token`. Saat backend siap, fungsi-fungsi ini
-diganti `fetch` sesuai `API.md`.
+### Demo Mode (`src/services/auth/authService.ts`)
+Karena backend belum ada, auth berjalan lokal. Ada dua kategori akun:
+- **Akun demo bawaan** (`admin@laku.id`/`admin123`, `demo@laku.id`/`demo123`,
+  masing-masing juga punya nomor HP demo) — tidak tersimpan di `registeredAccounts`,
+  statusnya pakai fallback `localStorage` key `onboardedEmails`.
+- **Akun terdaftar** (hasil "Buat Akun") — tersimpan di `registeredAccounts` lengkap
+  dengan `onboardingCompleted` per akun.
+
+Token disimpan di key `token`. Saat backend siap, fungsi-fungsi di `authService.ts`
+diganti `fetch` sesuai `API.md` (termasuk endpoint baru untuk `apiUpdateContact`).
 
 ---
 
 ## 9. Halaman
 
-### 9.1 Login (`pages/Login.tsx`)
-Form login/register dengan validasi, show/hide password, loading & error state,
-tombol Demo (Admin) memakai ikon (bukan emoji). Mobile: background gradient + card.
-Desktop: split branding kiri + form kanan.
+### 9.1 Login/Register (`pages/Auth/LoginPage.tsx`, `RegisterPage.tsx`)
+Form login/register dengan validasi (email **atau** nomor HP), show/hide password,
+loading & error state, tombol Demo (Admin) memakai ikon (bukan emoji). Mobile:
+background gradient + card. Desktop: split branding kiri + form kanan.
 
-### 9.2 Dashboard (`pages/Dashboard.tsx`)
+### 9.2 Dashboard (`pages/Dashboard/DashboardPage.tsx`)
 Menampilkan laba hari ini, kas di tangan, omzet, biaya, progres target, transaksi
-terbaru, edit target harian, dan modal detail. Semua angka dari `finance.ts`
+terbaru, edit target harian, dan modal detail. Semua angka dari `utils/currency.ts`
 (kas pakai `initialCash` dari Pengaturan, laba pakai HPP — bukan rumus lama).
 
-### 9.3 Produk/Stok (`pages/Products.tsx`)
+### 9.3 Produk/Stok (`pages/Products/ProductsPage.tsx`)
 CRUD produk + harga modal + kategori + foto (base64, maks 2MB), cari, urut
 (Terbaru/Nama/Harga/Stok), filter kategori, atur stok (IN/OUT), status stok
 (Habis/Hampir Habis/Tersedia), estimasi laba per unit saat mengisi harga.
 Desktop = tabel, Mobile = grid kartu + FAB. Konfirmasi sebelum hapus.
 
-### 9.4 POS/Kasir (`pages/POS.tsx`)
+### 9.4 POS/Kasir (`pages/POS/POSPage.tsx`)
 Pilih produk → keranjang → atur qty (validasi stok) → checkout dengan metode
 pembayaran, diskon, uang diterima & kembalian → buat transaksi `OUT` per item,
 kurangi stok, simpan **struk** (bisa dicetak/diunduh).
 
-### 9.5 Catatan (`pages/Records.tsx`)
+### 9.5 Catatan (`pages/Records/RecordsPage.tsx`)
 Riwayat transaksi dengan filter (Hari ini/Kemarin/7/30 hari), ringkasan omzet,
-biaya, laba (via `finance.ts`), jumlah transaksi, dikelompokkan per tanggal,
+biaya, laba (via `utils/currency.ts`), jumlah transaksi, dikelompokkan per tanggal,
 label `JUAL`/`BELI`.
 
-### 9.6 Insight (`pages/Insights.tsx`)
+### 9.6 Insight (`pages/Insights/InsightsPage.tsx`)
 - Kartu ringkasan: Total SKU, Terlaris, Transaksi, Stok Rendah.
 - **Grafik omzet interaktif** (komponen `SalesChart`): toggle **7 Hari / 30 Hari**,
   batang bisa **diketuk** untuk melihat rincian **Pemasukan / Pengeluaran / Laba**
@@ -240,35 +283,41 @@ label `JUAL`/`BELI`.
   omzet 7 hari + momentum, dengan confidence) dan **Prediksi Belanja** (rekomendasi
   restock per produk dari kecepatan penjualan). Tampil **di mobile maupun desktop**.
 
-### 9.7 Pengaturan (`pages/Settings.tsx`)
+### 9.7 Pengaturan (`pages/Settings/SettingsPage.tsx`)
 Disusun sebagai **accordion per-kategori** (buka satu-satu agar tidak perlu scroll
 panjang): Profil Toko, Operasional, Notifikasi, Kategori, Data (backup/restore JSON,
-reset demo/kosong), Akun (logout). Tombol **Simpan** berada di paling bawah.
+reset demo/kosong), **Akun** (editable: Email & Nomor HP + tombol "Simpan Email &
+Nomor" yang memanggil `apiUpdateContact()`, plus logout). Tombol **Simpan** utama
+berada di paling bawah.
 
 ---
 
 ## 10. Komponen Pendukung
 
-- **Onboarding** (`components/Onboarding.tsx`): langkah pengenalan untuk akun baru,
-  termasuk setup toko & target. Tiap slide memakai **tinggi tetap** (`min(64vh,500px)`)
-  + scroll internal sehingga tombol navigasi tidak "lompat-lompat" antar slide.
-- **Splash** (`components/Splash.tsx`): animasi loading "laku" + titik berdenyut.
-- **LakuLogo** (`components/LakuLogo.tsx`): logo tas belanja + garis tren naik.
-- **ErrorBoundary** (`components/ErrorBoundary.tsx`): menangkap error render global.
-- **TopNav**: judul halaman, notifikasi (item bisa diklik & dibaca), popup profil
-  ("Buka Pengaturan", tanpa tombol logout ganda).
-- **SideNav**: navigasi tablet/desktop; baris profil bawah bersifat info (tidak diklik).
-- **BottomNav**: navigasi mobile (Dashboard/Stok/Kasir/Catatan/Insight), tombol Kasir
-  menonjol; tanpa garis indikator di atas ikon.
-- **ModalSheet**: bottom sheet di mobile, dialog tengah di desktop; breakpoint reaktif,
-  tutup via overlay/Escape.
-- **Toast**: feedback singkat global.
+- **Onboarding** (`pages/Onboarding/OnboardingPage.tsx`): langkah pengenalan untuk
+  akun baru, termasuk setup nama toko & target (nomor HP **tidak** ditanya ulang —
+  auto-terisi dari `state.user.phone`). Tiap slide memakai **tinggi tetap**
+  (`min(64vh,500px)`) + scroll internal sehingga tombol navigasi tidak
+  "lompat-lompat" antar slide.
+- **Splash** (`components/branding/Splash.tsx`): animasi loading "laku" + titik berdenyut.
+- **LakuLogo** (`components/branding/LakuLogo.tsx`): logo tas belanja + garis tren naik.
+- **ErrorBoundary** (`components/feedback/ErrorBoundary.tsx`): menangkap error render global.
+- **TopNav** (`components/navigation/TopNav.tsx`): judul halaman, notifikasi (item
+  bisa diklik & dibaca), popup profil ("Buka Pengaturan", tanpa tombol logout ganda).
+- **SideNav** (`components/navigation/SideNav.tsx`): navigasi tablet/desktop; baris
+  profil bawah bersifat info (tidak diklik).
+- **BottomNav** (`components/navigation/BottomNav.tsx`): navigasi mobile
+  (Dashboard/Stok/Kasir/Catatan/Insight), tombol Kasir menonjol; tanpa garis
+  indikator di atas ikon.
+- **ModalSheet** (`components/modals/ModalSheet.tsx`): bottom sheet di mobile,
+  dialog tengah di desktop; breakpoint reaktif, tutup via overlay/Escape.
+- **Toast** (`components/feedback/Toast.tsx`): feedback singkat global.
 
 ---
 
 ## 11. Responsivitas
 
-Breakpoint via `hooks/use-mobile.ts`: Mobile `<768`, Tablet `768–1023`, Desktop `≥1024`.
+Breakpoint via `hooks/useMobile.ts`: Mobile `<768`, Tablet `768–1023`, Desktop `≥1024`.
 
 **Pola scroll (penting):** di desktop, root memakai tinggi tetap `h-dvh` dan `<main>`
 `overflow-hidden`; **container scroll setiap halaman** memakai `flex-1 min-h-0
@@ -283,7 +332,10 @@ menjadi area scroll.
 
 Key yang dipakai: `user`, `token`, `dailyTarget`, `hasSeenOnboarding`,
 `storeSettings`, `categories`, `products`, `transactions`, `receipts`, `cart`,
-serta `onboardedEmails` (status onboarding per-email untuk Demo Mode).
+`registeredAccounts` (akun hasil "Buat Akun", lengkap dengan `onboardingCompleted`
+per akun — sumber utama status onboarding), serta `onboardedEmails` (fallback
+status onboarding khusus **akun demo bawaan**, yang tidak tersimpan di
+`registeredAccounts`).
 
 ---
 
@@ -326,23 +378,41 @@ Iterasi terakhir yang sudah dikerjakan:
    user baru diarahkan kembali ke Login (validasi) lalu melewati langkah pengenalan;
    user lama langsung masuk. Status onboarding dibawa via `user.onboardingCompleted`
    (lihat `API.md` §0).
+8. **Restrukturisasi folder**: `src/lib/*` dipecah menjadi `src/services/`
+   (`auth/authService.ts`, `storage/storage.ts`), `src/utils/` (`currency.ts`,
+   dst.), dan `src/types/` (per-domain + barrel). Halaman dipindah ke
+   subfolder per-fitur (`pages/Auth/`, `pages/Dashboard/`, dst.).
+9. **Login/register dual-identifier**: bisa pakai email **atau** nomor HP
+   Indonesia (deteksi & normalisasi otomatis). Status onboarding kini disimpan
+   per akun terdaftar (`registeredAccounts[].onboardingCompleted`), bukan cuma
+   daftar email — jadi tidak terulang baik login pakai email maupun HP.
+10. **Onboarding tidak minta nomor HP lagi**: langkah setup toko otomatis
+    mengambil nomor HP dari akun yang login.
+11. **Pengaturan → Akun jadi bisa diedit**: tambah/ubah email & nomor HP lewat
+    `apiUpdateContact()`, otomatis tersinkron ke `storeSettings.storePhone`.
 
 ---
 
 ## 15. Status & Pengembangan Lanjutan
 
-**Sudah berjalan:** UI responsif penuh, auth + onboarding (flow baru), CRUD produk,
+> Untuk daftar known issues/keterbatasan yang lebih lengkap (termasuk duplikasi
+> tipe `AuthResponse` dan catatan RBAC), lihat `CODEBASE_GUIDE.md` §7.
+
+**Sudah berjalan:** UI responsif penuh, auth + onboarding dual-identifier
+(email/HP, anti-ulang per akun), kelola kontak akun di Pengaturan, CRUD produk,
 POS + struk, catatan, dashboard & insight dengan perhitungan konsisten, persistensi
 localStorage, backup/restore, pengaturan lengkap.
 
-**Masih lokal/simulasi:** belum ada backend (data di `localStorage`); prediksi
-"AI" masih heuristik berbasis data transaksi (belum model ML); dark mode disiapkan
-tapi belum diekspos di UI.
+**Masih lokal/simulasi:** belum ada backend (data di `localStorage`, password
+tidak di-hash — sengaja untuk Demo Mode); prediksi "AI" masih heuristik berbasis
+data transaksi (belum model ML); dark mode disiapkan tapi belum diekspos di UI;
+RBAC (`owner`/`cashier`) ada di tipe tapi belum ditegakkan di UI.
 
 **Prioritas selanjutnya:**
-1. Implementasi backend sesuai `API.md` dan ganti `src/lib/api.ts` dari demo ke `fetch`.
+1. Implementasi backend sesuai `API.md` dan ganti `src/services/auth/authService.ts`
+   dari demo ke `fetch` (termasuk endpoint baru untuk `apiUpdateContact`).
 2. Sinkronisasi produk/transaksi/pengaturan ke server (saat ini per-device).
 3. Pindahkan perhitungan berat (dashboard/insight) ke endpoint server.
 4. Proteksi sesi (validasi token, auto-logout saat kedaluwarsa).
-5. Test untuk reducer, checkout POS, filter & perhitungan finance.
+5. Test untuk reducer, checkout POS, filter & perhitungan currency.
 ```
