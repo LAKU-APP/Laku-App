@@ -1,3 +1,11 @@
+> **Catatan:** Ini adalah output mentah dari tool scaffolding awal proyek
+> (bukan dokumentasi yang dipelihara). Bagian "Structure" di bawah (mis.
+> `src/sections/`) **tidak** mencerminkan struktur folder aktual — proyek
+> sudah berkembang jauh dari scaffold ini. Untuk peta folder yang benar,
+> lihat [`PATHS.md`](./PATHS.md) atau [`CODEBASE_GUIDE.md`](./CODEBASE_GUIDE.md).
+> Daftar komponen `ui/` di bawah masih relevan (komponen-komponen ini memang
+> ada di `src/components/ui/`).
+
 Using Node.js 20, Tailwind CSS v3.4.19, and Vite v7.2.4
 
 Tailwind CSS has been set up with the shadcn theme

@@ -6,6 +6,10 @@
 >
 > Update terakhir: alur auth baru (register → login → onboarding), grafik omzet
 > interaktif, dan perbaikan scroll desktop.
+>
+> Untuk ringkasan kode terkini (struktur folder, class diagram, sequence diagram
+> auth, use case, dan known issues) yang cocok dibaca duluan oleh sesi AI/kontributor
+> baru, lihat [`CODEBASE_GUIDE.md`](./CODEBASE_GUIDE.md).
 
 ---
 
@@ -25,17 +29,17 @@
 ### 🔴 Critical
 
 **1. Data Persistence** — ✅ Selesai
-Semua data inti auto-save ke `localStorage`. Wrapper aman di `src/lib/storage.ts`
+Semua data inti auto-save ke `localStorage`. Wrapper aman di `src/services/storage/storage.ts`
 (`readStorage/writeStorage/removeStorage`), dipanggil per-slice di `AppContext.tsx`
 (produk, transaksi, keranjang, struk, kategori, user, target, pengaturan, onboarding).
 Refresh tidak lagi menghilangkan data.
 
 **2. Konfirmasi Hapus Produk** — ✅ Selesai
-Modal konfirmasi ("Produk akan dihapus permanen...") sebelum hapus di `Products.tsx`
+Modal konfirmasi ("Produk akan dihapus permanen...") sebelum hapus di `ProductsPage.tsx`
 (state `confirmDelete`). Aman dari salah klik.
 
 **3. Validasi Input Harga & Stok** — ✅ Selesai
-`parseNonNegativeInt()` + `validateForm()` di `Products.tsx`: tolak input huruf/NaN,
+`parseNonNegativeInt()` + `validateForm()` di `ProductsPage.tsx`: tolak input huruf/NaN,
 harga harus > 0, stok ≥ 0, modal valid; error tampil via toast.
 
 **4. Empty State Informatif** — ✅ Selesai
@@ -50,7 +54,7 @@ tercapai (mengikuti toggle `notifLowStock`/`notifTarget` di Pengaturan). Di `Top
 item notifikasi **bisa diklik, dibaca, dan ditandai sudah dibaca**.
 
 **6. Perhitungan Laba Akurat** — ✅ Selesai
-Dipindah ke `src/lib/finance.ts` sebagai sumber tunggal. Laba kotor = `harga jual −
+Dipindah ke `src/utils/currency.ts` sebagai sumber tunggal. Laba kotor = `harga jual −
 harga modal (costPrice) × qty`. Angka ajaib `× 0.2` **dihapus**. Dashboard, Records,
 dan Insights kini memakai fungsi yang sama → angka konsisten.
 
@@ -59,16 +63,16 @@ Saldo awal (`initialCash`) bisa diatur di Pengaturan. `calcCashOnHand = saldo aw
 omzet − pengeluaran`. Tidak ada lagi angka 1,2 juta hardcoded yang inkonsisten.
 
 **8. Search/Filter di Records** — ✅ Selesai
-`Records.tsx` punya pencarian nama produk + filter tipe (Semua / JUAL / BELI) +
+`RecordsPage.tsx` punya pencarian nama produk + filter tipe (Semua / JUAL / BELI) +
 filter waktu (Hari ini / Kemarin / 7 / 30 hari) dengan ringkasan ikut menyesuaikan.
 
 **9. Prediksi AI Berbasis Data** — ✅ Selesai
-`Insights.tsx` menghitung dari transaksi nyata: rekomendasi restock dari kecepatan
+`InsightsPage.tsx` menghitung dari transaksi nyata: rekomendasi restock dari kecepatan
 jual 7 hari terakhir, dan prakiraan omzet minggu depan dari rata-rata harian +
 momentum (dibatasi ±30%) + tingkat confidence. Tidak ada lagi angka statis.
 
 **10. Halaman Settings/Pengaturan** — ✅ Selesai
-`Settings.tsx` baru: accordion per-kategori (Profil Toko, Operasional, Notifikasi,
+`SettingsPage.tsx` baru: accordion per-kategori (Profil Toko, Operasional, Notifikasi,
 Kategori, Data, Akun) + tombol **Simpan** di paling bawah.
 
 ### 🟡 Medium
@@ -79,7 +83,7 @@ Field `category` di Product; filter chip kategori di Products; kelola kategori
 
 **12. Harga Beli vs Harga Jual** — ✅ Selesai
 Field `costPrice` ditambahkan. Form produk menampilkan estimasi laba per unit.
-Dipakai untuk perhitungan laba di `finance.ts`.
+Dipakai untuk perhitungan laba di `currency.ts`.
 
 **13. Diskon di POS** — ✅ Selesai
 Input diskon (nominal) saat checkout, ikut tersimpan di transaksi & struk.
@@ -97,7 +101,7 @@ layar putih.
 ### 🟢 Low
 
 **19. Sortir Produk** — ✅ Selesai
-Dropdown urutan: Terbaru / Nama A-Z / Harga / Stok di `Products.tsx`.
+Dropdown urutan: Terbaru / Nama A-Z / Harga / Stok di `ProductsPage.tsx`.
 
 **22. Feedback Haptic / Sound** — ✅ Selesai
 Bunyi konfirmasi (Web Audio) + getaran (`navigator.vibrate`) saat checkout berhasil,
@@ -117,7 +121,7 @@ stale-cache, hanya aktif di produksi). Bisa di-install di Android & iOS.
 - **Login email ATAU nomor HP**; onboarding selesai tersimpan di akun (anti-ulang);
   email/HP bisa ditambah/diubah di Pengaturan → Akun.
 - **Logout** dipindah ke tombol yang selalu terlihat di paling bawah Pengaturan.
-- **Onboarding bertahap** untuk akun baru (`Onboarding.tsx`) dengan tinggi slide
+- **Onboarding bertahap** untuk akun baru (`OnboardingPage.tsx`) dengan tinggi slide
   konsisten (anti layout-shift) + setup toko/target.
 - **Alur auth baru**: register tidak lagi auto-masuk → kembali ke Login → onboarding
   → masuk; user lama langsung masuk (via `onboardingCompleted`).

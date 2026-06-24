@@ -1,7 +1,9 @@
 # Arsitektur LAKU
 
 Ringkasan arsitektur frontend. Untuk detail per-halaman lihat
-`DOKUMENTASI_PENGERJAAN.md`; untuk kontrak backend lihat `API.md`.
+`DOKUMENTASI_PENGERJAAN.md`; untuk kontrak backend lihat `API.md`; untuk class
+diagram model data, sequence diagram auth/onboarding, dan use case, lihat
+[`CODEBASE_GUIDE.md`](./CODEBASE_GUIDE.md).
 
 ## Lapisan
 
