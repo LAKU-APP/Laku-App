@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatRupiah } from '@/utils/currency';
+import SuccessCheck from '@/components/feedback/SuccessCheck';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -418,6 +419,8 @@ export default function Onboarding({ onComplete, userName, initialStoreName }: O
                 placeholder="200000" type="tel"
               />
             </div>
+          ) : step.id === 'ready' ? (
+            <SuccessCheck size={120} color="#ffffff" ringColor="rgba(255,255,255,0.5)" />
           ) : (
             <StepVisual visual={step.visual} />
           )}

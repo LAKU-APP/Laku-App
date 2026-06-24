@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { ShoppingBag, Truck, Receipt, Calendar, Download, FileText, Search } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMobile';
 import { calcRevenue, calcExpense, calcGrossProfit } from '@/utils/currency';
+import { TransactionCardSkeleton } from '@/components/feedback/Skeleton';
 
 type TimeFilter = 'today' | 'yesterday' | '7days' | '30days';
 type TypeFilter = 'all' | 'OUT' | 'IN';
@@ -30,6 +31,13 @@ export default function Records() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Skeleton singkat saat masuk halaman — kesan data dimuat dengan cepat.
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 520);
+    return () => clearTimeout(t);
+  }, []);
 
   const filteredTransactions = useMemo(() => {
     const now = new Date();
@@ -325,7 +333,12 @@ export default function Records() {
 
       {/* Transaction List */}
       <div className="flex flex-col gap-3">
-        {grouped.map(([date, transactions]) => (
+        {loading && (
+          <div className={isMobile ? 'flex flex-col gap-2.5' : 'grid grid-cols-2 lg:grid-cols-3 gap-2.5'}>
+            {Array.from({ length: isMobile ? 5 : 6 }).map((_, i) => <TransactionCardSkeleton key={i} />)}
+          </div>
+        )}
+        {!loading && grouped.map(([date, transactions]) => (
           <div key={date}>
             <div className="flex items-center gap-2 mb-2.5">
               <Calendar size={14} className="text-[#9BA3BC]" />
@@ -365,7 +378,7 @@ export default function Records() {
             </div>
           </div>
         ))}
-        {grouped.length === 0 && (
+        {!loading && grouped.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Receipt size={48} className="text-[#DDE1EF] mb-3" />
             <p className="text-sm font-bold text-[#9BA3BC]">

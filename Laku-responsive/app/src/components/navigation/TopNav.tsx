@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Bell, User, Mail, Camera, X, Check, AlertTriangle, Info, CheckCircle, XCircle, Settings } from 'lucide-react';
 import ModalSheet from '@/components/modals/ModalSheet';
@@ -27,6 +27,16 @@ const notifColor = {
   error: 'text-[#ef4444] bg-[#fee2e2]',
 };
 
+// Goyangan lonceng (Web Animations API) — berayun dari titik gantung atas.
+const WIGGLE_FRAMES: Keyframe[] = [
+  { transform: 'rotate(0deg)' },
+  { transform: 'rotate(-14deg)' },
+  { transform: 'rotate(11deg)' },
+  { transform: 'rotate(-8deg)' },
+  { transform: 'rotate(5deg)' },
+  { transform: 'rotate(0deg)' },
+];
+
 export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
   const { state, showToast, updateUser, dispatch } = useApp();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -36,6 +46,18 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
   const currentTab = tabTitles[state.activeTab] || tabTitles.dashboard;
 
   const unreadCount = state.notifications.filter(n => !n.read).length;
+
+  // Lonceng bergoyang (jiggle) tiap kali jumlah notifikasi bertambah.
+  // Pakai Web Animations API via ref (side-effect, bukan setState) — tidak
+  // memicu render ulang & tahan re-render, sepola dengan notifySound().
+  const bellRef = useRef<SVGSVGElement>(null);
+  const prevNotifCount = useRef(state.notifications.length);
+  useEffect(() => {
+    if (state.notifications.length > prevNotifCount.current) {
+      bellRef.current?.animate(WIGGLE_FRAMES, { duration: 600, easing: 'ease-in-out' });
+    }
+    prevNotifCount.current = state.notifications.length;
+  }, [state.notifications.length]);
 
   const handleOpenProfile = () => {
     setProfileName(state.user?.name || '');
@@ -94,7 +116,7 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
                   <span className="text-[8px] font-extrabold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
                 </div>
               )}
-              <Bell size={17} className="text-white" strokeWidth={2} />
+              <Bell ref={bellRef} size={17} className="text-white" strokeWidth={2} style={{ transformOrigin: '50% 12%' }} />
             </button>
             <button
               className="rounded-xl flex items-center justify-center font-bold text-white bg-gradient-to-br from-[#60A5FA] to-[#1D4ED8] border-2 border-white/30 active:scale-95 transition-smooth shadow-md overflow-hidden"
@@ -159,7 +181,7 @@ export default function TopNav({ isDesktop = false }: { isDesktop?: boolean }) {
                 <span className="text-[8px] font-extrabold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>
               </div>
             )}
-            <Bell size={16} className="text-[#1A1F3A]" strokeWidth={2} />
+            <Bell ref={bellRef} size={16} className="text-[#1A1F3A]" strokeWidth={2} style={{ transformOrigin: '50% 12%' }} />
           </button>
 
           <button

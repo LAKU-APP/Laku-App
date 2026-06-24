@@ -9,6 +9,7 @@ import { useIsMobile } from '@/hooks/useMobile';
 import { formatRupiah } from '@/utils/currency';
 import ModalSheet from '@/components/modals/ModalSheet';
 import { apiUpdateContact } from '@/services/auth/authService';
+import { canChangeTargetToday, bumpTargetChangesToday, MAX_TARGET_CHANGES_PER_DAY } from '@/utils/dailyLimits';
 
 type SectionId = 'profil' | 'operasional' | 'notifikasi' | 'kategori' | 'data' | 'akun';
 
@@ -59,7 +60,17 @@ export default function Settings() {
       initialCash: toAmount(initialCash),
       lowStockThreshold: Math.max(1, toAmount(lowStock)),
     });
-    setDailyTarget(toAmount(dailyTarget));
+    // Target laba dibatasi maks 2x ganti/hari (biar konfetinya tetap sakral).
+    const newTarget = toAmount(dailyTarget);
+    if (newTarget !== state.dailyTarget) {
+      if (!canChangeTargetToday()) {
+        setDailyTargetInput(String(state.dailyTarget)); // kembalikan ke nilai semula
+        showToast(`Pengaturan tersimpan. Target tidak diganti — maks ${MAX_TARGET_CHANGES_PER_DAY}x/hari.`);
+        return;
+      }
+      bumpTargetChangesToday();
+      setDailyTarget(newTarget);
+    }
     showToast('Pengaturan tersimpan');
   };
 
@@ -343,7 +354,7 @@ export default function Settings() {
           <LogOut size={16} strokeWidth={2} /> Keluar dari Akun
         </button>
 
-        <p className="text-center text-[11px] font-semibold text-[#DDE1EF] pt-1 pb-2">LAKU · Warung Digital · v1.0</p>
+        <p className="text-center text-[11px] font-semibold text-[#DDE1EF] pt-1 pb-2">Laku · Warung Digital · v1.5</p>
       </div>
 
       {/* Konfirmasi reset data */}
