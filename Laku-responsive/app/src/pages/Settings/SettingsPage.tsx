@@ -25,7 +25,7 @@ function toLocalPhone(p?: string): string {
 }
 
 export default function Settings() {
-  const { state, dispatch, showToast, logout, updateUser, updateStoreSettings, setDailyTarget } = useApp();
+  const { state, dispatch, showToast, logout, updateUser, updateStoreSettings, setDailyTarget, addCategory, removeCategory } = useApp();
   const isMobile = useIsMobile();
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -81,15 +81,15 @@ export default function Settings() {
     }
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     const name = newCategory.trim();
     if (!name) return;
     if (state.categories.some(c => c.toLowerCase() === name.toLowerCase())) {
       showToast('Kategori sudah ada');
       return;
     }
-    dispatch({ type: 'ADD_CATEGORY', payload: name });
-    setNewCategory('');
+    const ok = await addCategory(name);
+    if (ok) setNewCategory('');
   };
 
   const handleResetData = () => {
@@ -231,7 +231,7 @@ export default function Settings() {
               <span key={category} className="inline-flex items-center gap-1.5 h-9 pl-3.5 pr-2 rounded-full bg-[#F4F6FD] text-xs font-bold text-[#3D4566]">
                 {category}
                 <button
-                  onClick={() => dispatch({ type: 'REMOVE_CATEGORY', payload: category })}
+                  onClick={() => removeCategory(category)}
                   aria-label={`Hapus kategori ${category}`}
                   className="w-5 h-5 rounded-full bg-white flex items-center justify-center text-[#9BA3BC] hover:text-[#ef4444] transition-colors"
                 >

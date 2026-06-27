@@ -51,13 +51,13 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
       if (!/^[a-zA-Z0-9._]{3,20}$/.test(username.trim())) {
         setError('Username 3-20 karakter (huruf, angka, titik, underscore)'); return;
       }
-      if (!identifier.trim()) { setError('Email atau nomor HP harus diisi'); return; }
-      const val = identifier.trim();
-      if (!isPhoneNumber(val) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
-        setError('Masukkan email yang valid atau nomor HP (contoh: 08123456789)'); return;
+      if (!identifier.trim()) { setError('Email harus diisi'); return; }
+      // Daftar baru mendukung email (backend belum menerima nomor HP, lihat docs/API.md §1).
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier.trim())) {
+        setError('Masukkan email yang valid'); return;
       }
       if (!password.trim()) { setError('Password harus diisi'); return; }
-      if (password.length < 6) { setError('Password minimal 6 karakter'); return; }
+      if (password.length < 8) { setError('Password minimal 8 karakter'); return; }
       if (password !== confirmPassword) { setError('Password tidak cocok'); return; }
     } else {
       if (!identifier.trim()) { setError('Email atau nomor HP harus diisi'); return; }
@@ -74,11 +74,8 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
         // Daftar akun saja — TIDAK langsung masuk aplikasi. User baru wajib
         // login dulu (validasi), baru melewati langkah pengenalan.
         // Alur: buat akun → kembali ke login → langkah-langkah → masuk aplikasi.
-        // Deteksi apakah identifier = email atau nomor HP
-        const regId = identifier.trim();
-        const regEmail = isPhoneNumber(regId) ? '' : regId;
-        const regPhone = isPhoneNumber(regId) ? regId : '';
-        await apiRegister(name.trim(), regEmail, password, regPhone);
+        const regEmail = identifier.trim();
+        await apiRegister(name.trim(), regEmail, password);
         // Simpan username & nama toko di localStorage supaya onboarding bisa pra-isi
         try {
           localStorage.setItem('pendingUsername', username.trim());
@@ -87,7 +84,7 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
         setMode('login');
         setName(''); setUsername(''); setPassword(''); setConfirmPassword('');
         setShowPass(false); setShowConfirmPass(false);
-        setIdentifier(regEmail || regPhone); // identifier diisi otomatis agar tinggal masukkan password
+        setIdentifier(regEmail); // identifier diisi otomatis agar tinggal masukkan password
         showToast('Akun berhasil dibuat! Silakan login untuk melanjutkan.');
         return;
       }
@@ -188,9 +185,9 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
           </>
         )}
 
-        {/* Email atau Nomor HP — satu field untuk login & register */}
+        {/* Login: email atau nomor HP. Register: email saja (lihat docs/API.md §1). */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold text-[#3D4566]">Email atau Nomor HP</label>
+          <label className="text-xs font-bold text-[#3D4566]">{mode === 'register' ? 'Email' : 'Email atau Nomor HP'}</label>
           <div className={inputCls('identifier', compact)}>
             {isPhoneNumber(identifier)
               ? <Phone size={compact ? 15 : 17} className={focusedField === 'identifier' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
@@ -200,7 +197,7 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
               onChange={e => { setIdentifier(e.target.value); setError(null); }}
               onFocus={() => setFocusedField('identifier')} onBlur={() => setFocusedField(null)}
               className={`flex-1 bg-transparent font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none ${compact ? 'text-xs' : 'text-sm'}`}
-              placeholder="Masukkan email atau nomor HP"
+              placeholder={mode === 'register' ? 'Masukkan email' : 'Masukkan email atau nomor HP'}
             />
           </div>
         </div>
@@ -214,7 +211,7 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
               onChange={e => { setPassword(e.target.value); setError(null); }}
               onFocus={() => setFocusedField('password')} onBlur={() => setFocusedField(null)}
               className={`flex-1 bg-transparent font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none ${compact ? 'text-xs' : 'text-sm'}`}
-              placeholder={mode === 'register' ? 'Min. 6 karakter' : 'Masukkan password'}
+              placeholder={mode === 'register' ? 'Min. 8 karakter' : 'Masukkan password'}
             />
             <button type="button" onClick={() => setShowPass(!showPass)} className="text-[#9BA3BC] hover:text-[#1A56DB] transition-colors shrink-0">
               {showPass ? <EyeOff size={15} /> : <Eye size={15} />}

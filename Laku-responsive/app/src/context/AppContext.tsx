@@ -2,6 +2,12 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect } 
 import type { Product, Transaction, CartItem, TabType, ToastState, Notification, ReceiptSnapshot, StoreSettings } from '@/types';
 import { clearToken, apiCompleteOnboarding } from '@/services/auth/authService';
 import { readStorage, writeStorage, removeStorage } from '@/services/storage/storage';
+import { ApiError } from '@/services/api/interceptor';
+import * as productsApi from '@/services/api/products';
+import * as categoriesApi from '@/services/api/categories';
+import * as transactionsApi from '@/services/api/transactions';
+import * as receiptsApi from '@/services/api/receipts';
+import * as settingsApi from '@/services/api/settings';
 import { calcGrossProfit } from '@/utils/currency';
 import { generateId } from '@/utils/helpers';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
@@ -227,8 +233,14 @@ interface AppContextType {
   addNotification: (title: string, message: string, type: 'info' | 'success' | 'warning' | 'error') => void;
   completeOnboarding: () => void;
   restartOnboarding: () => void;
-  addReceipt: (receipt: ReceiptSnapshot) => void;
   updateStoreSettings: (settings: Partial<StoreSettings>) => void;
+  addProduct: (input: productsApi.ProductInput) => Promise<boolean>;
+  editProduct: (id: string, input: Partial<productsApi.ProductInput>) => Promise<boolean>;
+  removeProduct: (id: string) => Promise<boolean>;
+  adjustProductStock: (id: string, qty: number, type: 'IN' | 'OUT', note?: string) => Promise<boolean>;
+  addCategory: (name: string) => Promise<boolean>;
+  removeCategory: (name: string) => Promise<boolean>;
+  checkout: (payload: transactionsApi.CheckoutPayload) => Promise<ReceiptSnapshot | null>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -345,16 +357,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'LOGOUT' });
   }, []);
 
+  // Tangani error API secara konsisten: token habis/invalid → logout otomatis,
+  // selain itu tampilkan pesan dari backend (atau fallback) lewat toast.
+  const handleApiError = useCallback((e: unknown, fallback: string) => {
+    if (e instanceof ApiError && e.status === 401) {
+      logout();
+      showToast('Sesi berakhir, silakan login kembali');
+      return;
+    }
+    showToast(e instanceof Error ? e.message : fallback);
+  }, [logout, showToast]);
+
   const updateUser = useCallback((updates: { name?: string; email?: string; phone?: string; image?: string }) => {
     if (!state.user) return;
     writeStorage(STORAGE_KEYS.user, { ...state.user, ...updates });
     dispatch({ type: 'UPDATE_USER', payload: updates });
   }, [state.user]);
 
+  // Disimpan lokal langsung (UX instan), lalu disinkron ke backend di belakang.
   const setDailyTarget = useCallback((target: number) => {
     writeStorage(STORAGE_KEYS.dailyTarget, target);
     dispatch({ type: 'SET_DAILY_TARGET', payload: target });
-  }, []);
+    void settingsApi.updateTarget(target).catch(e => handleApiError(e, 'Gagal menyimpan target'));
+  }, [handleApiError]);
 
   const addNotification = useCallback((title: string, message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
     const notification: Notification = {
@@ -370,12 +395,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const completeOnboarding = useCallback(() => {
     writeStorage(STORAGE_KEYS.onboarding, true);
-    // Catat agar saat user ini login lagi nanti tidak diminta onboarding ulang.
-    // Pakai email ATAU nomor HP (akun bisa terdaftar lewat salah satunya).
-    const accountKey = state.user?.email || state.user?.phone;
-    if (accountKey) void apiCompleteOnboarding(accountKey);
+    void apiCompleteOnboarding();
     dispatch({ type: 'SET_ONBOARDING_COMPLETE' });
-  }, [state.user]);
+  }, []);
 
   // Tampilkan ulang langkah-langkah pengenalan (dipakai saat masuk mode demo).
   const restartOnboarding = useCallback(() => {
@@ -383,17 +405,138 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'RESET_ONBOARDING' });
   }, []);
 
-  const addReceipt = useCallback((receipt: ReceiptSnapshot) => {
-    dispatch({ type: 'ADD_RECEIPT', payload: receipt });
-  }, []);
-
+  // Disimpan lokal langsung (dipakai juga oleh toggle notifikasi yang perlu
+  // terasa instan), lalu disinkron ke backend di belakang.
   const updateStoreSettings = useCallback((settings: Partial<StoreSettings>) => {
     writeStorage(STORAGE_KEYS.storeSettings, { ...state.storeSettings, ...settings });
     dispatch({ type: 'UPDATE_STORE_SETTINGS', payload: settings });
-  }, [state.storeSettings]);
+    void settingsApi.updateSettings(settings).catch(e => handleApiError(e, 'Gagal menyimpan pengaturan'));
+  }, [state.storeSettings, handleApiError]);
+
+  // Produk/kategori/transaksi: tunggu konfirmasi backend dulu baru perbarui
+  // state lokal — datanya menyangkut stok & uang, jangan optimistic.
+  const addProduct = useCallback(async (input: productsApi.ProductInput) => {
+    try {
+      const product = await productsApi.createProduct(input);
+      dispatch({ type: 'ADD_PRODUCT', payload: product });
+      return true;
+    } catch (e) {
+      handleApiError(e, 'Gagal menambah produk');
+      return false;
+    }
+  }, [handleApiError]);
+
+  const editProduct = useCallback(async (id: string, input: Partial<productsApi.ProductInput>) => {
+    try {
+      const product = await productsApi.updateProduct(id, input);
+      dispatch({ type: 'UPDATE_PRODUCT', payload: product });
+      return true;
+    } catch (e) {
+      handleApiError(e, 'Gagal memperbarui produk');
+      return false;
+    }
+  }, [handleApiError]);
+
+  const removeProduct = useCallback(async (id: string) => {
+    try {
+      await productsApi.deleteProduct(id);
+      dispatch({ type: 'DELETE_PRODUCT', payload: id });
+      return true;
+    } catch (e) {
+      handleApiError(e, 'Gagal menghapus produk');
+      return false;
+    }
+  }, [handleApiError]);
+
+  const adjustProductStock = useCallback(async (id: string, qty: number, type: 'IN' | 'OUT', note?: string) => {
+    try {
+      const { product, transaction } = await productsApi.adjustStock(id, qty, type, note);
+      dispatch({ type: 'UPDATE_PRODUCT', payload: product });
+      dispatch({ type: 'ADD_TRANSACTION', payload: transaction });
+      return true;
+    } catch (e) {
+      handleApiError(e, 'Gagal mengubah stok');
+      return false;
+    }
+  }, [handleApiError]);
+
+  const addCategory = useCallback(async (name: string) => {
+    try {
+      await categoriesApi.createCategory(name);
+      dispatch({ type: 'ADD_CATEGORY', payload: name });
+      return true;
+    } catch (e) {
+      handleApiError(e, 'Gagal menambah kategori');
+      return false;
+    }
+  }, [handleApiError]);
+
+  const removeCategory = useCallback(async (name: string) => {
+    try {
+      await categoriesApi.deleteCategory(name);
+      dispatch({ type: 'REMOVE_CATEGORY', payload: name });
+      return true;
+    } catch (e) {
+      handleApiError(e, 'Gagal menghapus kategori');
+      return false;
+    }
+  }, [handleApiError]);
+
+  // Checkout POS: backend membuat transaksi + struk + mengurangi stok sekaligus
+  // (atomik, terkunci per-baris). Stok lokal dikurangi sesuai qty yang dibeli
+  // supaya UI langsung konsisten tanpa fetch ulang.
+  const checkout = useCallback(async (payload: transactionsApi.CheckoutPayload) => {
+    try {
+      const { transactions, receipt } = await transactionsApi.checkout(payload);
+      transactions.forEach(t => dispatch({ type: 'ADD_TRANSACTION', payload: t }));
+      payload.items.forEach(item => {
+        const product = state.products.find(p => p.id === item.productId);
+        if (product) dispatch({ type: 'UPDATE_PRODUCT', payload: { ...product, stock: product.stock - item.qty } });
+      });
+      dispatch({ type: 'ADD_RECEIPT', payload: receipt });
+      dispatch({ type: 'CLEAR_CART' });
+      return receipt;
+    } catch (e) {
+      handleApiError(e, 'Gagal memproses transaksi');
+      return null;
+    }
+  }, [handleApiError, state.products]);
+
+  // Saat user login (atau saat app dibuka dengan sesi tersimpan), tarik data
+  // nyata dari backend supaya cache lokal tidak basi (lihat docs/API.md).
+  useEffect(() => {
+    if (!state.user) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [products, categories, transactions, receipts, settings] = await Promise.all([
+          productsApi.fetchProducts(),
+          categoriesApi.fetchCategories(),
+          transactionsApi.fetchTransactions(),
+          receiptsApi.fetchReceipts(),
+          settingsApi.fetchSettings(),
+        ]);
+        if (cancelled) return;
+        const { dailyTarget, ...storeSettings } = settings;
+        dispatch({ type: 'IMPORT_DATA', payload: { products, categories, transactions, receipts } });
+        dispatch({ type: 'UPDATE_STORE_SETTINGS', payload: storeSettings });
+        dispatch({ type: 'SET_DAILY_TARGET', payload: dailyTarget });
+      } catch (e) {
+        if (!cancelled) handleApiError(e, 'Gagal memuat data dari server');
+      }
+    })();
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.user?.id]);
 
   return (
-    <AppContext.Provider value={{ state, dispatch, showToast, login, logout, updateUser, setDailyTarget, addNotification, completeOnboarding, restartOnboarding, addReceipt, updateStoreSettings }}>
+    <AppContext.Provider value={{
+      state, dispatch, showToast, login, logout, updateUser, setDailyTarget, addNotification,
+      completeOnboarding, restartOnboarding, updateStoreSettings,
+      addProduct, editProduct, removeProduct, adjustProductStock, addCategory, removeCategory, checkout,
+    }}>
       {children}
     </AppContext.Provider>
   );

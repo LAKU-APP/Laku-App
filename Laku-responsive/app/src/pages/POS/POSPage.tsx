@@ -7,7 +7,6 @@ import Cart from './Cart';
 import Checkout, { type PaymentMethod } from './Checkout';
 import type { ReceiptSnapshot, CartItem } from '@/types';
 import { formatRupiah } from '@/utils/currency';
-import { generateId } from '@/utils/helpers';
 import { successFeedback } from '@/utils/feedback';
 
 const paymentLabel: Record<PaymentMethod, string> = {
@@ -26,7 +25,7 @@ function escapeHtml(value: string) {
 }
 
 export default function POS() {
-  const { state, dispatch, showToast, addReceipt } = useApp();
+  const { state, dispatch, showToast, checkout } = useApp();
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
@@ -73,7 +72,7 @@ export default function POS() {
     dispatch({ type: 'UPDATE_CART_QTY', payload: { productId: item.productId, delta: 1 } });
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (state.cart.length === 0) return;
 
     // Validate stock before processing
@@ -92,73 +91,24 @@ export default function POS() {
     }
 
     setProcessing(true);
-    const receiptId = `TRX-${Date.now().toString(36).toUpperCase()}`;
-    const receiptItems = state.cart.map(item => ({
-      productId: item.productId,
-      productName: item.productName,
-      price: item.price,
-      qty: item.qty,
-    }));
-    const receiptCreatedAt = new Date().toISOString();
-
-    // Sebar diskon proporsional ke tiap baris agar total transaksi tercatat = total
-    // bersih. Sisa pembulatan dibebankan ke baris terakhir supaya jumlahnya pas.
-    let allocatedNet = 0;
-    const lineNetTotals = receiptItems.map((item, idx) => {
-      const lineGross = item.price * item.qty;
-      if (idx === receiptItems.length - 1) return netTotal - allocatedNet;
-      const lineNet = grossTotal > 0 ? Math.round((lineGross / grossTotal) * netTotal) : 0;
-      allocatedNet += lineNet;
-      return lineNet;
+    // Backend yang membuat transaksi + struk + mengurangi stok (atomik, lihat
+    // docs/API.md §4) — totalnya dihitung & disebar proporsional di server.
+    const receipt = await checkout({
+      items: state.cart.map(item => ({ productId: item.productId, qty: item.qty })),
+      paymentMethod,
+      discount: discount > 0 ? discount : undefined,
+      cashPaid: paymentMethod === 'cash' && cashPaidInput.trim() !== '' ? cashPaid : undefined,
+      note: `Penjualan: ${state.cart.map(i => `${i.qty}x ${i.productName}`).join(', ')}`,
     });
+    setProcessing(false);
 
-    const capturedPaymentMethod = paymentMethod;
-    const capturedCashPaid = paymentMethod === 'cash' && cashPaidInput.trim() !== '' ? cashPaid : undefined;
-    const capturedChange = capturedCashPaid !== undefined ? capturedCashPaid - netTotal : undefined;
+    if (!receipt) return; // gagal — pesan error sudah ditampilkan via toast
 
-    setTimeout(() => {
-      const note = `Penjualan: ${receiptItems.map(i => `${i.qty}x ${i.productName}`).join(', ')}`;
-      receiptItems.forEach((item, idx) => {
-        const product = state.products.find(p => p.id === item.productId);
-        if (!product) return;
-        const lineGross = item.price * item.qty;
-        const lineNet = lineNetTotals[idx];
-        dispatch({
-          type: 'ADD_TRANSACTION', payload: {
-            id: generateId(),
-            productId: product.id, productName: item.productName, type: 'OUT' as const,
-            qty: item.qty, totalPrice: lineNet,
-            discount: lineGross - lineNet,
-            paymentMethod: capturedPaymentMethod,
-            note,
-            createdAt: receiptCreatedAt,
-          }
-        });
-        // Update stok saja (transaksi penjualan sudah dicatat di atas).
-        dispatch({ type: 'UPDATE_PRODUCT', payload: { ...product, stock: product.stock - item.qty } });
-      });
-
-      const receipt: ReceiptSnapshot = {
-        id: receiptId,
-        storeName: state.storeSettings.storeName || state.user?.name || 'LAKU',
-        createdAt: receiptCreatedAt,
-        items: receiptItems,
-        total: netTotal,
-        discount: discount > 0 ? discount : undefined,
-        paymentMethod: capturedPaymentMethod,
-        cashPaid: capturedCashPaid,
-        change: capturedChange,
-      };
-
-      dispatch({ type: 'CLEAR_CART' });
-      addReceipt(receipt);
-      setLastReceipt(receipt);
-      setDiscountInput('');
-      setCashPaidInput('');
-      setProcessing(false);
-      showToast(`Transaksi berhasil! Total: ${formatRupiah(netTotal)}`);
-      successFeedback(); // bunyi + getaran singkat sebagai konfirmasi
-    }, 800);
+    setLastReceipt(receipt);
+    setDiscountInput('');
+    setCashPaidInput('');
+    showToast(`Transaksi berhasil! Total: ${formatRupiah(receipt.total)}`);
+    successFeedback(); // bunyi + getaran singkat sebagai konfirmasi
   };
 
   const printReceipt = (receipt: ReceiptSnapshot) => {

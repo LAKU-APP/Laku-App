@@ -5,7 +5,7 @@ import ModalSheet from '@/components/modals/ModalSheet';
 import ProductForm from './ProductForm';
 import ProductCard, { ProductImage } from './ProductCard';
 import type { Product } from '@/types';
-import { generateId, parseNonNegativeInt } from '@/utils/helpers';
+import { parseNonNegativeInt } from '@/utils/helpers';
 import { useIsMobile } from '@/hooks/useMobile';
 
 type SortKey = 'newest' | 'name' | 'price' | 'stock';
@@ -18,7 +18,7 @@ const sortOptions: { key: SortKey; label: string }[] = [
 ];
 
 export default function Products() {
-  const { state, dispatch, showToast } = useApp();
+  const { state, showToast, addProduct, editProduct, removeProduct, adjustProductStock } = useApp();
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('newest');
@@ -70,51 +70,42 @@ export default function Products() {
     return { name, price, costPrice: cost, stock, category: formCategory || undefined };
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     const fields = validateForm();
     if (!fields) return;
-    const newProduct: Product = {
-      id: generateId(),
-      ...fields,
-      emoji: '📦',
-      image: formImage || undefined,
-      createdAt: new Date().toISOString(),
-    };
-    dispatch({ type: 'ADD_PRODUCT', payload: newProduct });
+    const ok = await addProduct({ ...fields, image: formImage || undefined });
+    if (!ok) return; // gagal — pesan error sudah ditampilkan via toast
     showToast('Produk berhasil ditambahkan');
     resetForm();
     setShowAddForm(false);
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingProduct) return;
     const fields = validateForm();
     if (!fields) return;
-    dispatch({
-      type: 'UPDATE_PRODUCT',
-      payload: { ...editingProduct, ...fields, image: formImage || editingProduct.image },
-    });
+    const ok = await editProduct(editingProduct.id, { ...fields, image: formImage || editingProduct.image });
+    if (!ok) return;
     showToast('Produk berhasil diperbarui');
     resetForm();
     setEditingProduct(null);
   };
 
-  const handleDelete = (id: string) => {
-    dispatch({ type: 'DELETE_PRODUCT', payload: id });
+  const handleDelete = async (id: string) => {
+    const ok = await removeProduct(id);
+    if (!ok) return;
     showToast('Produk dihapus');
     setConfirmDelete(null);
     setEditingProduct(null);
   };
 
-  const handleAdjust = () => {
+  const handleAdjust = async () => {
     if (!adjustProduct || !adjustQty || parseInt(adjustQty) <= 0) {
       showToast('Masukkan jumlah yang valid');
       return;
     }
-    dispatch({
-      type: 'ADJUST_STOCK',
-      payload: { productId: adjustProduct.id, qty: parseInt(adjustQty), type: adjustType },
-    });
+    const ok = await adjustProductStock(adjustProduct.id, parseInt(adjustQty), adjustType);
+    if (!ok) return;
     showToast(`Stok ${adjustType === 'IN' ? 'ditambah' : 'dikurangi'} ${adjustQty} ${adjustProduct.name}`);
     setAdjustProduct(null);
     setAdjustQty('');
