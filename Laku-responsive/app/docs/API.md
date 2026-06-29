@@ -1,10 +1,13 @@
 # LAKU — Kontrak API Backend
 
 Dokumen ini adalah kontrak endpoint yang dibutuhkan frontend LAKU. Saat ini
-seluruh auth & data berjalan dalam **Demo Mode** (lokal, lihat `src/lib/api.ts`
-dan `localStorage`). Ketika backend siap, implementasikan endpoint di bawah dan
-ganti isi `src/lib/api.ts` — bentuk request/response sudah disesuaikan dengan
-yang dipakai UI.
+seluruh auth & data berjalan dalam **Demo Mode** (lokal, lihat
+`src/services/auth/authService.ts` dan `localStorage`). Ketika backend siap,
+implementasikan endpoint di bawah dan ganti isi `authService.ts` — bentuk
+request/response sudah disesuaikan dengan yang dipakai UI.
+
+> Ringkasan arsitektur kode terkini (folder, class diagram, use case) ada di
+> [`CODEBASE_GUIDE.md`](./CODEBASE_GUIDE.md).
 
 Base URL: `http://localhost:3001/api`
 Production: `https://api.laku.app/api` *(sesuaikan)*
@@ -33,29 +36,46 @@ Konsekuensi untuk backend:
    sengaja tidak memakai token dari response register untuk auto-login; user
    diarahkan kembali ke form login. Backend tetap boleh mengembalikan token
    (boleh diabaikan UI), tetapi yang penting akun tercipta.
-2. Setiap user punya status **`onboardingCompleted`** (boolean). Response
-   `login` & `register` **wajib** menyertakan field ini di objek `user`.
+2. **Identifier login/register fleksibel: email ATAU nomor HP Indonesia.**
+   User boleh mengisi salah satu atau keduanya saat register. Frontend
+   mendeteksi otomatis apakah input berupa nomor HP (`0xxx`, `+62xxx`, `62xxx`)
+   atau email, lalu mengirim field yang sesuai. Backend harus bisa
+   mencocokkan akun lewat email **atau** nomor HP ternormalisasi (`62xxx`),
+   dan menolak duplikat di salah satu field (lihat error `409` di bawah).
+3. Setiap user punya status **`onboardingCompleted`** (boolean), **per akun**
+   (tidak peduli login pakai email atau HP). Response `login` & `register`
+   **wajib** menyertakan field ini di objek `user`.
    - `false` → setelah login, UI menampilkan langkah pengenalan.
    - `true`  → setelah login, UI langsung masuk aplikasi.
-3. Saat user menyelesaikan langkah pengenalan, UI memanggil
+4. Saat user menyelesaikan langkah pengenalan, UI memanggil
    **`PATCH /auth/onboarding`** agar status menjadi `true` dan login berikutnya
-   tidak mengulang onboarding.
+   (dengan email **atau** HP yang sama) tidak mengulang onboarding.
+5. Langkah pengenalan **tidak** meminta nomor HP toko lagi — UI mengambilnya
+   langsung dari `user.phone` hasil login/register. Pastikan response auth
+   selalu menyertakan `phone` bila akun memilikinya.
+6. User yang sudah login bisa menambah/mengubah email & nomor HP miliknya
+   lewat **`PATCH /auth/contact`** (lihat §1d) — dipanggil dari Pengaturan →
+   Akun, terutama berguna untuk akun yang awalnya daftar tanpa email.
 
 ---
 
 ## 1. Auth
 
 ### POST `/auth/register`
-Daftar akun baru. **Tidak** auto-login di sisi UI.
+Daftar akun baru. **Tidak** auto-login di sisi UI. `email` dan `phone` **boleh
+salah satu kosong**, tapi minimal satu wajib diisi (UI memvalidasi ini, backend
+sebaiknya juga). `phone` dikirim sudah ternormalisasi ke format `62xxx`.
 
 **Request Body:**
 ```json
 {
   "name": "Warung Bu Sri",
   "email": "bsri@email.com",
+  "phone": "628123456789",
   "password": "password123"
 }
 ```
+> Contoh akun daftar pakai nomor HP saja: `{ "name": "...", "email": "", "phone": "628123456789", "password": "..." }`.
 
 **Response `201`:**
 ```json
@@ -65,6 +85,7 @@ Daftar akun baru. **Tidak** auto-login di sisi UI.
     "id": "usr_abc123",
     "name": "Warung Bu Sri",
     "email": "bsri@email.com",
+    "phone": "628123456789",
     "onboardingCompleted": false
   }
 }
@@ -74,15 +95,23 @@ Daftar akun baru. **Tidak** auto-login di sisi UI.
 ```json
 { "message": "Email sudah terdaftar", "code": "EMAIL_TAKEN" }
 ```
+```json
+{ "message": "Nomor HP sudah terdaftar", "code": "PHONE_TAKEN" }
+```
 
 ---
 
 ### POST `/auth/login`
-Login dengan email & password.
+Login dengan **email atau nomor HP** + password. Frontend mengirim apa pun
+yang diketik user di field `identifier` (atau langsung sebagai `email`/`phone`
+tergantung konvensi backend) — backend mendeteksi formatnya sendiri.
 
 **Request Body:**
 ```json
-{ "email": "bsri@email.com", "password": "password123" }
+{ "identifier": "bsri@email.com", "password": "password123" }
+```
+```json
+{ "identifier": "0812-3456-789", "password": "password123" }
 ```
 
 **Response `200`:**
@@ -93,6 +122,7 @@ Login dengan email & password.
     "id": "usr_abc123",
     "name": "Warung Bu Sri",
     "email": "bsri@email.com",
+    "phone": "628123456789",
     "onboardingCompleted": true
   }
 }
@@ -102,6 +132,8 @@ Login dengan email & password.
 ```json
 { "message": "Email atau password salah", "code": "INVALID_CREDENTIALS" }
 ```
+> Pesan error menyesuaikan label identifier yang dipakai user (`"Email atau
+> password salah"` vs `"Nomor HP atau password salah"`) — lihat `authService.ts`.
 
 ---
 
@@ -138,6 +170,40 @@ Update profil user (nama, dan opsional foto).
   }
 }
 ```
+
+---
+
+### PATCH `/auth/contact` 🔒
+Tambah/ubah email dan/atau nomor HP akun yang sedang login. Dipanggil dari
+**Pengaturan → Akun** (frontend: `apiUpdateContact()`). Berguna terutama untuk
+akun yang awalnya register hanya dengan nomor HP dan ingin menambahkan email
+(atau sebaliknya).
+
+**Request Body** *(semua opsional, kirim yang berubah saja)*:
+```json
+{ "email": "bsri@email.com", "phone": "628123456789" }
+```
+
+**Response `200`:**
+```json
+{ "user": { "id": "usr_abc123", "email": "bsri@email.com", "phone": "628123456789" } }
+```
+
+**Error `400`** (format tidak valid):
+```json
+{ "message": "Format email tidak valid", "code": "INVALID_EMAIL" }
+```
+
+**Error `409`** (dipakai akun lain):
+```json
+{ "message": "Email sudah dipakai akun lain", "code": "EMAIL_TAKEN" }
+```
+```json
+{ "message": "Nomor HP sudah dipakai akun lain", "code": "PHONE_TAKEN" }
+```
+
+> Setelah sukses, UI menyalin nomor HP baru ke `storeSettings.storePhone`
+> secara otomatis — backend tidak perlu menangani sinkronisasi ini.
 
 ---
 
@@ -363,7 +429,7 @@ Update sebagian field (partial). **Request Body** contoh:
 ## 7. Dashboard & Insights
 
 Saat ini semua angka dihitung di frontend dari `transactions` + `products`
-(lihat `src/lib/finance.ts`). Endpoint berikut **opsional** namun disarankan
+(lihat `src/utils/currency.ts`). Endpoint berikut **opsional** namun disarankan
 agar perhitungan berat dipindah ke server.
 
 **Model perhitungan (HARUS sama dengan frontend):**
@@ -494,15 +560,22 @@ VITE_API_URL=http://localhost:3001/api
 
 ## 12. Integrasi Frontend
 
-Service layer ada di `app/src/lib/api.ts`. **Saat ini Demo Mode** — auth & status
-onboarding disimpan di `localStorage` (key `token` dan `onboardedEmails`), data
-produk/transaksi/dll. dikelola di `src/context/AppContext.tsx` (juga persisted ke
-`localStorage`).
+Service layer ada di `app/src/services/auth/authService.ts`. **Saat ini Demo
+Mode** — auth & status onboarding disimpan di `localStorage` (key
+`registeredAccounts`, `token`, dan fallback `onboardedEmails` untuk akun demo
+bawaan), data produk/transaksi/dll. dikelola di `src/context/AppContext.tsx`
+(juga persisted ke `localStorage`).
 
 Fungsi yang sudah ada (Demo Mode):
-- `apiLogin(email, password)` → `AuthResponse` (mengandung `user.onboardingCompleted`)
-- `apiRegister(name, email, password)` → `AuthResponse` (UI tidak auto-login)
-- `apiCompleteOnboarding(email)` → tandai onboarding selesai
+- `apiLogin(identifier, password)` → `AuthResponse` (mengandung
+  `user.onboardingCompleted`; `identifier` boleh email atau nomor HP)
+- `apiRegister(name, email, password, phone)` → `AuthResponse` (UI tidak
+  auto-login; `email`/`phone` boleh salah satu kosong)
+- `apiCompleteOnboarding(identifier)` → tandai onboarding selesai pada akun
+  yang cocok (email atau HP)
+- `apiUpdateContact(current, next)` → ubah email/HP akun yang login, dengan
+  validasi format & cek duplikat (lihat §1d)
+- `isPhoneNumber(input)` / normalisasi nomor HP ke `62xxx` (helper internal)
 - `saveToken(token)` / `clearToken()`
 
 Yang perlu ditambahkan saat backend siap (ganti implementasi demo dengan `fetch`):

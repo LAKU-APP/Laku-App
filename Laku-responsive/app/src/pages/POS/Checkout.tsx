@@ -93,24 +93,28 @@ export default function Checkout({
             {formatRupiah(netTotal)}
           </div>
         </div>
-        <button
-          onClick={onCheckout}
-          disabled={cartEmpty || processing}
-          className={`rounded-xl font-bold transition-all ${
-            cartEmpty || processing
-              ? 'bg-[#EEF0F6] text-[#9BA3BC] cursor-not-allowed'
-              : 'bg-[#1A56DB] text-white active:scale-[0.97]'
-          }`}
-          style={{
-            height: 'clamp(40px, 11vw, 48px)',
-            paddingLeft: 'clamp(16px, 5vw, 24px)',
-            paddingRight: 'clamp(16px, 5vw, 24px)',
-            fontSize: 'clamp(12px, 3.5vw, 14px)',
-            boxShadow: !cartEmpty && !processing ? '0 4px 20px rgba(26,79,214,0.35)' : 'none',
-          }}
-        >
-          {processing ? 'Memproses...' : 'Bayar'}
-        </button>
+        {/* Tombol berdetak (breathing + glow) saat siap dibayar */}
+        <div className="relative shrink-0">
+          {!cartEmpty && !processing && <span className="checkout-glow rounded-xl" />}
+          <button
+            onClick={onCheckout}
+            disabled={cartEmpty || processing}
+            className={`relative z-10 rounded-xl font-bold transition-all ${
+              cartEmpty || processing
+                ? 'bg-[#EEF0F6] text-[#9BA3BC] cursor-not-allowed'
+                : 'bg-[#1A56DB] text-white active:scale-[0.97] animate-breathe'
+            }`}
+            style={{
+              height: 'clamp(40px, 11vw, 48px)',
+              paddingLeft: 'clamp(16px, 5vw, 24px)',
+              paddingRight: 'clamp(16px, 5vw, 24px)',
+              fontSize: 'clamp(12px, 3.5vw, 14px)',
+              boxShadow: !cartEmpty && !processing ? '0 4px 20px rgba(26,79,214,0.35)' : 'none',
+            }}
+          >
+            {processing ? 'Memproses...' : 'Bayar'}
+          </button>
+        </div>
       </div>
     </>
   );

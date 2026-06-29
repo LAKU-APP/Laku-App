@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import type { Product, Transaction, CartItem, TabType, ToastState, Notification, ReceiptSnapshot, StoreSettings } from '@/types';
 import { clearToken, apiCompleteOnboarding } from '@/services/auth/authService';
 import { readStorage, writeStorage, removeStorage } from '@/services/storage/storage';
@@ -10,43 +10,12 @@ import * as receiptsApi from '@/services/api/receipts';
 import * as settingsApi from '@/services/api/settings';
 import { calcGrossProfit } from '@/utils/currency';
 import { generateId } from '@/utils/helpers';
+import { notifySound } from '@/utils/feedback';
 import { STORAGE_KEYS } from '@/constants/storageKeys';
 
-// Helper: generate ISO date string relative to today
-function daysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  d.setHours(10 + n, 0, 0, 0);
-  return d.toISOString();
-}
-
+// Kategori default fallback sebelum data dari backend dimuat. Saat user
+// mendaftar, backend membuat kategori default yang sama (lihat AuthController).
 const defaultCategories = ['Makanan', 'Minuman', 'Sembako', 'Bumbu', 'Lainnya'];
-
-const initialProducts: Product[] = [
-  { id: '1', name: 'Nasi Goreng', price: 15000, costPrice: 8000, stock: 50, emoji: '📦', category: 'Makanan', createdAt: daysAgo(7) },
-  { id: '2', name: 'Es Teh', price: 5000, costPrice: 2000, stock: 30, emoji: '📦', category: 'Minuman', createdAt: daysAgo(7) },
-  { id: '3', name: 'Beras 1kg', price: 12000, costPrice: 10000, stock: 100, emoji: '📦', category: 'Sembako', createdAt: daysAgo(7) },
-  { id: '4', name: 'Cabai Merah', price: 8000, costPrice: 5000, stock: 20, emoji: '📦', category: 'Bumbu', createdAt: daysAgo(7) },
-  { id: '5', name: 'Telur 1kg', price: 25000, costPrice: 20000, stock: 40, emoji: '📦', category: 'Sembako', createdAt: daysAgo(7) },
-  { id: '6', name: 'Minyak Goreng', price: 15000, costPrice: 12000, stock: 25, emoji: '📦', category: 'Sembako', createdAt: daysAgo(7) },
-  { id: '7', name: 'Mie Goreng', price: 10000, costPrice: 5500, stock: 0, emoji: '📦', category: 'Makanan', createdAt: daysAgo(7) },
-  { id: '8', name: 'Kopi', price: 6000, costPrice: 3000, stock: 60, emoji: '📦', category: 'Minuman', createdAt: daysAgo(7) },
-];
-
-const initialTransactions: Transaction[] = [
-  { id: '1', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 3, totalPrice: 45000, note: 'Penjualan: 3x Nasi Goreng', paymentMethod: 'cash', createdAt: daysAgo(0) },
-  { id: '2', productId: '2', productName: 'Es Teh', type: 'OUT', qty: 2, totalPrice: 10000, note: 'Penjualan: 2x Es Teh', paymentMethod: 'cash', createdAt: daysAgo(0) },
-  { id: '3', productId: '3', productName: 'Beras 1kg', type: 'IN', qty: 10, totalPrice: 120000, note: 'Pembelian: 10kg Beras', createdAt: daysAgo(0) },
-  { id: '4', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 2, totalPrice: 30000, note: 'Penjualan: 2x Nasi Goreng', paymentMethod: 'qris', createdAt: daysAgo(0) },
-  { id: '5', productId: '4', productName: 'Cabai Merah', type: 'OUT', qty: 5, totalPrice: 40000, note: 'Penjualan: 5x Cabai Merah', paymentMethod: 'cash', createdAt: daysAgo(1) },
-  { id: '6', productId: '5', productName: 'Telur 1kg', type: 'IN', qty: 5, totalPrice: 125000, note: 'Pembelian: 5kg Telur', createdAt: daysAgo(1) },
-  { id: '7', productId: '6', productName: 'Minyak Goreng', type: 'IN', qty: 4, totalPrice: 60000, note: 'Pembelian: 4L Minyak Goreng', createdAt: daysAgo(2) },
-  { id: '8', productId: '3', productName: 'Beras 1kg', type: 'OUT', qty: 8, totalPrice: 96000, note: 'Penjualan: 8kg Beras', paymentMethod: 'transfer', createdAt: daysAgo(2) },
-  { id: '9', productId: '8', productName: 'Kopi', type: 'OUT', qty: 10, totalPrice: 60000, note: 'Penjualan: 10x Kopi', paymentMethod: 'cash', createdAt: daysAgo(3) },
-  { id: '10', productId: '2', productName: 'Es Teh', type: 'OUT', qty: 5, totalPrice: 25000, note: 'Penjualan: 5x Es Teh', paymentMethod: 'cash', createdAt: daysAgo(4) },
-  { id: '11', productId: '1', productName: 'Nasi Goreng', type: 'OUT', qty: 4, totalPrice: 60000, note: 'Penjualan: 4x Nasi Goreng', paymentMethod: 'qris', createdAt: daysAgo(5) },
-  { id: '12', productId: '8', productName: 'Kopi', type: 'OUT', qty: 6, totalPrice: 36000, note: 'Penjualan: 6x Kopi', paymentMethod: 'cash', createdAt: daysAgo(6) },
-];
 
 const defaultStoreSettings: StoreSettings = {
   storeName: '',
@@ -105,8 +74,8 @@ type AppAction =
   | { type: 'IMPORT_DATA'; payload: { products?: Product[]; transactions?: Transaction[]; receipts?: ReceiptSnapshot[]; categories?: string[] } };
 
 const initialState: AppState = {
-  products: initialProducts,
-  transactions: initialTransactions,
+  products: [],
+  transactions: [],
   cart: [],
   activeTab: 'dashboard',
   toast: { visible: false, message: '' },
@@ -187,7 +156,21 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'RESET_ONBOARDING':
       return { ...state, hasSeenOnboarding: false };
     case 'LOGOUT':
-      return { ...state, user: null };
+      // Bersihkan semua data milik user agar tidak bocor ke sesi berikutnya bila
+      // perangkat dipakai bergantian. Data asli tetap aman tersimpan di backend.
+      return {
+        ...state,
+        user: null,
+        products: [],
+        transactions: [],
+        receipts: [],
+        cart: [],
+        notifications: [],
+        categories: defaultCategories,
+        storeSettings: defaultStoreSettings,
+        dailyTarget: 300000,
+        hasSeenOnboarding: false,
+      };
     case 'ADD_RECEIPT':
       return { ...state, receipts: [action.payload, ...state.receipts] };
     case 'UPDATE_STORE_SETTINGS':
@@ -199,10 +182,12 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case 'REMOVE_CATEGORY':
       return { ...state, categories: state.categories.filter(c => c !== action.payload) };
     case 'RESET_DATA':
+      // Tidak ada lagi data contoh; reset selalu mengosongkan tampilan lokal.
+      // (Catatan: ini hanya membersihkan state lokal, bukan menghapus di backend.)
       return {
         ...state,
-        products: action.payload === 'demo' ? initialProducts : [],
-        transactions: action.payload === 'demo' ? initialTransactions : [],
+        products: [],
+        transactions: [],
         receipts: [],
         cart: [],
       };
@@ -254,9 +239,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dailyTarget: readStorage(STORAGE_KEYS.dailyTarget, init.dailyTarget),
     hasSeenOnboarding: readStorage(STORAGE_KEYS.onboarding, false),
     storeSettings: { ...defaultStoreSettings, ...readStorage(STORAGE_KEYS.storeSettings, {}) },
-    categories: readStorage(STORAGE_KEYS.categories, defaultCategories),
-    products: readStorage(STORAGE_KEYS.products, initialProducts),
-    transactions: readStorage(STORAGE_KEYS.transactions, initialTransactions),
+    categories: readStorage<string[]>(STORAGE_KEYS.categories, defaultCategories),
+    products: readStorage<Product[]>(STORAGE_KEYS.products, []),
+    transactions: readStorage<Transaction[]>(STORAGE_KEYS.transactions, []),
     receipts: readStorage(STORAGE_KEYS.receipts, []),
     cart: readStorage(STORAGE_KEYS.cart, []),
   }));
@@ -341,6 +326,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.storeSettings.darkMode]);
 
+  // Bunyikan suara saat ADA notifikasi baru masuk (stok rendah / target tercapai).
+  // Catatan: browser baru mengeluarkan suara setelah ada interaksi pengguna
+  // (kebijakan autoplay), jadi notifikasi paling awal saat boot bisa senyap.
+  const notifCountRef = useRef(state.notifications.length);
+  useEffect(() => {
+    if (state.notifications.length > notifCountRef.current) notifySound();
+    notifCountRef.current = state.notifications.length;
+  }, [state.notifications.length]);
+
   const showToast = useCallback((message: string) => {
     dispatch({ type: 'SHOW_TOAST', payload: message });
     setTimeout(() => dispatch({ type: 'HIDE_TOAST' }), 2200);
@@ -352,8 +346,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    removeStorage(STORAGE_KEYS.user);
     clearToken();
+    // Hapus seluruh cache data lokal agar tidak terbaca user berikutnya di
+    // perangkat yang sama (data sebenarnya tetap tersimpan di backend).
+    [
+      STORAGE_KEYS.user, STORAGE_KEYS.products, STORAGE_KEYS.transactions,
+      STORAGE_KEYS.receipts, STORAGE_KEYS.cart, STORAGE_KEYS.categories,
+      STORAGE_KEYS.storeSettings, STORAGE_KEYS.dailyTarget, STORAGE_KEYS.onboarding,
+    ].forEach(removeStorage);
     dispatch({ type: 'LOGOUT' });
   }, []);
 

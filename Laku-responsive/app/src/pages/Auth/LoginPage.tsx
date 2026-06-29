@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Mail, Lock, AlertCircle, User, Eye, EyeOff, ArrowRight, TrendingUp, Package, Receipt, Rocket, Phone, AtSign } from 'lucide-react';
-import { apiLogin, apiRegister, saveToken, isPhoneNumber } from '@/services/auth/authService';
+import { Mail, Lock, AlertCircle, User, Eye, EyeOff, ArrowRight, TrendingUp, Package, Receipt, AtSign } from 'lucide-react';
+import { apiLogin, apiRegister, saveToken } from '@/services/auth/authService';
 import { useIsMobile } from '@/hooks/useMobile';
 import LakuLogo from '@/components/branding/LakuLogo';
 import LakuWordmark from '@/components/branding/LakuWordmark';
+import LoginMascot from '@/components/branding/LoginMascot';
 
 // Sorotan fitur utama pada panel branding halaman login.
 const loginHighlights = [
@@ -17,7 +18,7 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
   const { dispatch, showToast, login, completeOnboarding, restartOnboarding } = useApp();
   const isMobile = useIsMobile();
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
-  const [identifier, setIdentifier] = useState(''); // email atau nomor HP (login & register)
+  const [identifier, setIdentifier] = useState(''); // email (login & register)
   const [username, setUsername] = useState(''); // username khusus register
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -60,10 +61,9 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
       if (password.length < 8) { setError('Password minimal 8 karakter'); return; }
       if (password !== confirmPassword) { setError('Password tidak cocok'); return; }
     } else {
-      if (!identifier.trim()) { setError('Email atau nomor HP harus diisi'); return; }
-      const val = identifier.trim();
-      if (!isPhoneNumber(val) && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
-        setError('Masukkan email yang valid atau nomor HP (contoh: 08123456789)'); return;
+      if (!identifier.trim()) { setError('Email harus diisi'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier.trim())) {
+        setError('Masukkan email yang valid'); return;
       }
       if (!password.trim()) { setError('Password harus diisi'); return; }
     }
@@ -74,7 +74,7 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
         // Daftar akun saja — TIDAK langsung masuk aplikasi. User baru wajib
         // login dulu (validasi), baru melewati langkah pengenalan.
         // Alur: buat akun → kembali ke login → langkah-langkah → masuk aplikasi.
-        const regEmail = identifier.trim();
+        const regEmail = identifier.trim().toLowerCase();
         await apiRegister(name.trim(), regEmail, password);
         // Simpan username & nama toko di localStorage supaya onboarding bisa pra-isi
         try {
@@ -105,29 +105,19 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
     }
   };
 
-  const handleDemoLogin = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await apiLogin('admin@laku.id', 'admin123');
-      saveToken(res.token);
-      // Mode demo selalu memutar ulang langkah pengenalan, bukan langsung masuk.
-      restartOnboarding();
-      login(res.user);
-      dispatch({ type: 'SET_TAB', payload: 'dashboard' });
-      showToast('Login sebagai Admin Demo berhasil!');
-    } catch {
-      setError('Gagal login demo');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const inputCls = (field: string, compact = false) =>
     `flex items-center gap-2.5 ${compact ? 'px-3 py-2' : 'px-4 py-3'} rounded-xl border-2 transition-all duration-200 ${focusedField === field
       ? 'border-[#1A56DB] bg-[#e8effe]'
       : 'border-[#EEF0F6] bg-[#F8F9FC] hover:border-[#d4e4fb]'
     }`;
+
+  // Maskot menutup mata saat mengetik password (field password/konfirmasi fokus
+  // & disembunyikan), dan mengintip saat password ditampilkan.
+  const pwFieldActive = focusedField === 'password' || focusedField === 'confirm';
+  const pwShown = (focusedField === 'password' && showPass) || (focusedField === 'confirm' && showConfirmPass);
+  const mascotCovering = pwFieldActive && !pwShown;
+  const mascotPeeking = pwFieldActive && pwShown;
 
   const renderForm = (compact = false) => (
     <div
@@ -137,7 +127,23 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
         transition: 'opacity 0.25s cubic-bezier(0.4,0,0.2,1), transform 0.25s cubic-bezier(0.4,0,0.2,1)',
       }}
     >
-      <div className={compact ? 'mb-3' : 'mb-6'}>
+      {/* Maskot interaktif */}
+      <div className="flex justify-center mb-2">
+        <div className="relative">
+          <div className="absolute inset-0 rounded-full bg-[#1A56DB]/12 blur-xl scale-90" aria-hidden="true" />
+          <div className="relative">
+            <LoginMascot
+              covering={mascotCovering}
+              peeking={mascotPeeking}
+              error={!!error}
+              loading={loading}
+              size={compact ? 68 : 84}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className={`text-center ${compact ? 'mb-3' : 'mb-6'}`}>
         <h2 className={`font-extrabold text-[#1A1F3A] ${compact ? 'text-base' : 'text-xl'}`}>
           {mode === 'login' ? 'Masuk' : 'Buat Akun'}
         </h2>
@@ -185,19 +191,17 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
           </>
         )}
 
-        {/* Login: email atau nomor HP. Register: email saja (lihat docs/API.md §1). */}
+        {/* Email — dipakai untuk login & register. */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold text-[#3D4566]">{mode === 'register' ? 'Email' : 'Email atau Nomor HP'}</label>
+          <label className="text-xs font-bold text-[#3D4566]">Email</label>
           <div className={inputCls('identifier', compact)}>
-            {isPhoneNumber(identifier)
-              ? <Phone size={compact ? 15 : 17} className={focusedField === 'identifier' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
-              : <Mail size={compact ? 15 : 17} className={focusedField === 'identifier' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />}
+            <Mail size={compact ? 15 : 17} className={focusedField === 'identifier' ? 'text-[#1A56DB]' : 'text-[#9BA3BC]'} />
             <input
-              type="text" value={identifier}
+              type="email" value={identifier}
               onChange={e => { setIdentifier(e.target.value); setError(null); }}
               onFocus={() => setFocusedField('identifier')} onBlur={() => setFocusedField(null)}
               className={`flex-1 bg-transparent font-medium text-[#1A1F3A] placeholder-[#DDE1EF] outline-none ${compact ? 'text-xs' : 'text-sm'}`}
-              placeholder={mode === 'register' ? 'Masukkan email' : 'Masukkan email atau nomor HP'}
+              placeholder="nama@email.com"
             />
           </div>
         </div>
@@ -249,32 +253,6 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
           }
         </button>
 
-        {mode === 'login' && (
-          <div className={`flex flex-col items-center ${compact ? 'gap-2' : 'gap-3'}`}>
-            {/* Separator */}
-            <div className="flex items-center gap-3 w-full">
-              <div className="flex-1 h-px bg-[#EEF0F6]" />
-              <span className="text-[10px] text-[#9BA3BC] font-medium">atau</span>
-              <div className="flex-1 h-px bg-[#EEF0F6]" />
-            </div>
-
-            {/* Demo login button */}
-            <button
-              type="button"
-              onClick={handleDemoLogin}
-              disabled={loading}
-              className={`w-full rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60
-                bg-gradient-to-r from-[#f0fdf4] to-[#dcfce7] border-2 border-[#bbf7d0] text-[#16a34a]
-                hover:from-[#dcfce7] hover:to-[#bbf7d0] ${compact ? 'h-9 text-xs' : 'h-11 text-sm'}`}
-            >
-              <Rocket size={compact ? 14 : 16} strokeWidth={2.4} /> Masuk Demo (Admin)
-            </button>
-
-            <p className={`text-[#9BA3BC] text-center ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
-              Atau coba cepat lewat tombol Masuk Demo di atas
-            </p>
-          </div>
-        )}
       </form>
 
       <p className={`text-center text-[#9BA3BC] ${compact ? 'text-[11px] mt-3' : 'text-xs mt-5'}`}>
@@ -299,23 +277,23 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
           background: 'linear-gradient(160deg, #0f1f5c 0%, #1A56DB 60%, #1e6ef5 100%)',
         }}
       >
-        <div className="fixed top-[-60px] right-[-60px] w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
-        <div className="fixed bottom-[-40px] left-[-40px] w-36 h-36 rounded-full bg-white/5 pointer-events-none" />
+        <div className="fixed top-[-60px] right-[-60px] w-48 h-48 rounded-full bg-white/5 pointer-events-none animate-float" />
+        <div className="fixed bottom-[-40px] left-[-40px] w-36 h-36 rounded-full bg-white/5 pointer-events-none animate-float-slow" />
 
-        <div className="w-full max-w-[320px] relative z-10 py-6">
+        <div className="w-full max-w-[340px] relative z-10 py-7">
           {/* Logo */}
-          <div className="flex items-center gap-2.5 mb-5 animate-fade-up animate-delay-1">
-            <LakuLogo size={40} className="shrink-0" style={{ filter: 'drop-shadow(0 6px 16px rgba(0,0,0,0.25))' }} />
+          <div className="flex items-center justify-center gap-2.5 mb-5 animate-fade-up animate-delay-1">
+            <LakuLogo size={38} className="shrink-0" style={{ filter: 'drop-shadow(0 6px 16px rgba(0,0,0,0.25))' }} />
             <div>
-              <div className="font-extrabold text-base tracking-tight leading-none"><LakuWordmark aku="#FFFFFF" /></div>
-              <div className="text-white/50 text-[10px] font-medium mt-0.5">Manajemen Toko</div>
+              <div className="font-extrabold text-lg tracking-tight leading-none"><LakuWordmark aku="#FFFFFF" /></div>
+              <div className="text-white/55 text-[10px] font-medium mt-0.5">Warung digital untuk UMKM</div>
             </div>
           </div>
 
           {/* Form card */}
-          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden animate-fade-up animate-delay-2 transition-all duration-300 ease-out">
-            <div className="h-[3px] bg-gradient-to-r from-[#1A56DB] to-[#1340b8]" />
-            <div className="p-4">
+          <div className="bg-white rounded-3xl shadow-2xl overflow-hidden animate-fade-up animate-delay-2 transition-all duration-300 ease-out">
+            <div className="h-1 bg-gradient-to-r from-[#1A56DB] via-[#3b82f6] to-[#1340b8]" />
+            <div className="p-5">
               {renderForm(true)}
             </div>
           </div>
@@ -345,17 +323,17 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
         className="flex-1 flex flex-col items-center justify-center relative overflow-hidden"
         style={{ background: 'linear-gradient(160deg, #0a1540 0%, #1340b8 100%)' }}
       >
-        {/* Geometric shapes */}
-        <div className="absolute top-[-160px] right-[-160px] w-[500px] h-[500px] rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute top-[-80px] right-[-80px] w-[320px] h-[320px] rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute bottom-[-140px] left-[-140px] w-[420px] h-[420px] rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute bottom-[-60px] left-[-60px] w-[240px] h-[240px] rounded-full border border-white/5 pointer-events-none" />
+        {/* Geometric shapes — mengambang halus (levitate) */}
+        <div className="absolute top-[-160px] right-[-160px] w-[500px] h-[500px] rounded-full border border-white/5 pointer-events-none animate-float-slow" />
+        <div className="absolute top-[-80px] right-[-80px] w-[320px] h-[320px] rounded-full border border-white/5 pointer-events-none animate-float" />
+        <div className="absolute bottom-[-140px] left-[-140px] w-[420px] h-[420px] rounded-full border border-white/5 pointer-events-none animate-float-fast" />
+        <div className="absolute bottom-[-60px] left-[-60px] w-[240px] h-[240px] rounded-full border border-white/5 pointer-events-none animate-float" />
         {/* Subtle glow */}
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-[#1A56DB]/20 blur-[80px] pointer-events-none" />
 
         <div className="relative z-10 flex flex-col items-center px-12">
           <LakuLogo size={84} className="mb-6" style={{ filter: 'drop-shadow(0 12px 28px rgba(0,0,0,0.3))' }} />
-          <div className="font-extrabold tracking-[0.15em] text-3xl mb-2"><LakuWordmark aku="#FFFFFF" /></div>
+          <div className="font-extrabold tracking-tight text-4xl mb-2"><LakuWordmark aku="#FFFFFF" /></div>
           <div className="text-white/50 text-sm font-medium mb-10 text-center">Warung digital untuk UMKM Indonesia</div>
 
           <div className="flex flex-col gap-3 w-[300px]">
@@ -382,7 +360,7 @@ export default function Login({ initialMode = 'login' }: { initialMode?: 'login'
         <div className="w-full max-w-[340px] px-2 py-12">
           <div className="mb-8 flex items-center gap-2">
             <LakuLogo size={30} />
-            <div className="text-[11px] font-bold tracking-widest uppercase"><LakuWordmark aku="#1A1F3A" /></div>
+            <div className="text-sm font-extrabold tracking-tight"><LakuWordmark aku="#1A1F3A" /></div>
           </div>
 
           {renderForm(false)}

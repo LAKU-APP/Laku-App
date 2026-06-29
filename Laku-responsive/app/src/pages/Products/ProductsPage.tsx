@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Search, Plus, Minus, Edit2, Trash2, Package, ArrowUpDown, AlertTriangle } from 'lucide-react';
 import ModalSheet from '@/components/modals/ModalSheet';
 import ProductForm from './ProductForm';
 import ProductCard, { ProductImage } from './ProductCard';
+import { ProductCardSkeleton, ProductRowSkeleton } from '@/components/feedback/Skeleton';
 import type { Product } from '@/types';
 import { parseNonNegativeInt } from '@/utils/helpers';
 import { useIsMobile } from '@/hooks/useMobile';
@@ -36,6 +37,13 @@ export default function Products() {
   const [formImage, setFormImage] = useState('');
   const [adjustQty, setAdjustQty] = useState('');
   const [adjustType, setAdjustType] = useState<'IN' | 'OUT'>('IN');
+
+  // Skeleton singkat saat masuk halaman — kesan data dimuat dengan cepat.
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 520);
+    return () => clearTimeout(t);
+  }, []);
 
   // Stok dianggap rendah bila masih ada tapi di bawah ambang dari Pengaturan.
   const lowStock = (stock: number) => stock > 0 && stock <= state.storeSettings.lowStockThreshold;
@@ -294,7 +302,20 @@ export default function Products() {
         </div>
       )}
 
-      {isMobile ? mobileView : desktopView}
+      {/* Skeleton shimmer saat loading awal */}
+      {loading ? (
+        isMobile ? (
+          <div className="grid grid-cols-2 gap-3 auto-rows-fr">
+            {Array.from({ length: 6 }).map((_, i) => <ProductCardSkeleton key={i} />)}
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl card-shadow overflow-hidden">
+            {Array.from({ length: 6 }).map((_, i) => <ProductRowSkeleton key={i} />)}
+          </div>
+        )
+      ) : (
+        isMobile ? mobileView : desktopView
+      )}
 
       {/* FAB - mobile only */}
       {isMobile && (

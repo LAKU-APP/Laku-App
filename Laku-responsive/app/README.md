@@ -44,8 +44,13 @@ VITE_API_URL=http://localhost:3001/api
 ```
 
 ## Dokumentasi
-Lihat folder [`docs/`](./docs): `API.md` (kontrak backend), `ARCHITECTURE.md`,
-`DEPLOYMENT.md`, `ROADMAP.md` (status fitur), `DOKUMENTASI_PENGERJAAN.md`.
+Mulai dari [`docs/CODEBASE_GUIDE.md`](./docs/CODEBASE_GUIDE.md) — ringkasan
+arsitektur, class diagram, sequence diagram auth, dan use case yang ditulis
+khusus agar sesi AI/kontributor baru tidak perlu baca seluruh source code.
+
+Dokumen lain di folder [`docs/`](./docs): `PATHS.md` (peta folder singkat),
+`API.md` (kontrak backend), `ARCHITECTURE.md`, `DEPLOYMENT.md`, `ROADMAP.md`
+(status fitur), `DOKUMENTASI_PENGERJAAN.md` (detail per-halaman/komponen).
 
 ## Status
 Frontend berjalan penuh dengan data lokal (`localStorage`). Backend belum

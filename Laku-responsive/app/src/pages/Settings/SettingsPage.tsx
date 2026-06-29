@@ -1,14 +1,13 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import {
   Store, MapPin, Phone, Mail, MessageSquare, Wallet, Target, AlertTriangle,
-  Tag, Plus, X, LogOut, Info, Database, RotateCcw, Trash2, ChevronDown,
-  Bell, PackageX, Download, Upload,
+  Tag, Plus, X, LogOut, Info, ChevronDown, Bell, PackageX,
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMobile';
 import { formatRupiah } from '@/utils/currency';
-import ModalSheet from '@/components/modals/ModalSheet';
 import { apiUpdateContact } from '@/services/auth/authService';
+import { canChangeTargetToday, bumpTargetChangesToday, MAX_TARGET_CHANGES_PER_DAY } from '@/utils/dailyLimits';
 
 type SectionId = 'profil' | 'operasional' | 'notifikasi' | 'kategori' | 'data' | 'akun';
 
@@ -18,16 +17,10 @@ function toAmount(value: string): number {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
-// Tampilkan nomor 62xxx sebagai 0xxx agar familiar bagi pengguna.
-function toLocalPhone(p?: string): string {
-  if (!p) return '';
-  return p.startsWith('62') ? '0' + p.slice(2) : p;
-}
 
 export default function Settings() {
-  const { state, dispatch, showToast, logout, updateUser, updateStoreSettings, setDailyTarget, addCategory, removeCategory } = useApp();
+  const { state, showToast, logout, updateUser, updateStoreSettings, setDailyTarget, addCategory, removeCategory } = useApp();
   const isMobile = useIsMobile();
-  const importRef = useRef<HTMLInputElement>(null);
 
   // Akordeon: hanya satu seksi terbuka agar tidak perlu scroll panjang.
   const [openSection, setOpenSection] = useState<SectionId>('profil');
@@ -43,11 +36,9 @@ export default function Settings() {
   const [lowStock, setLowStock] = useState(String(state.storeSettings.lowStockThreshold));
 
   const [newCategory, setNewCategory] = useState('');
-  const [confirmReset, setConfirmReset] = useState<'demo' | 'empty' | null>(null);
 
   // Kontak akun (email & nomor HP) — bisa diubah/ditambah di sini.
   const [accEmail, setAccEmail] = useState(state.user?.email || '');
-  const [accPhone, setAccPhone] = useState(toLocalPhone(state.user?.phone));
   const [savingContact, setSavingContact] = useState(false);
 
   const handleSave = () => {
@@ -59,23 +50,29 @@ export default function Settings() {
       initialCash: toAmount(initialCash),
       lowStockThreshold: Math.max(1, toAmount(lowStock)),
     });
-    setDailyTarget(toAmount(dailyTarget));
+    // Target laba dibatasi maks 2x ganti/hari (biar konfetinya tetap sakral).
+    const newTarget = toAmount(dailyTarget);
+    if (newTarget !== state.dailyTarget) {
+      if (!canChangeTargetToday()) {
+        setDailyTargetInput(String(state.dailyTarget)); // kembalikan ke nilai semula
+        showToast(`Pengaturan tersimpan. Target tidak diganti — maks ${MAX_TARGET_CHANGES_PER_DAY}x/hari.`);
+        return;
+      }
+      bumpTargetChangesToday();
+      setDailyTarget(newTarget);
+    }
     showToast('Pengaturan tersimpan');
   };
 
-  // Simpan email & nomor HP akun (memperbarui akun login, profil, & nomor toko).
+  // Simpan/ubah email akun (memperbarui akun login lewat backend).
   const handleSaveContact = async () => {
     setSavingContact(true);
     try {
-      const res = await apiUpdateContact(
-        { email: state.user?.email, phone: state.user?.phone },
-        { email: accEmail, phone: accPhone },
-      );
-      updateUser({ email: res.email, phone: res.phone });
-      if (res.phone) updateStoreSettings({ storePhone: toLocalPhone(res.phone) });
-      showToast('Email & nomor diperbarui');
+      const res = await apiUpdateContact(accEmail);
+      updateUser({ email: res.email });
+      showToast('Email diperbarui');
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Gagal memperbarui kontak');
+      showToast(e instanceof Error ? e.message : 'Gagal memperbarui email');
     } finally {
       setSavingContact(false);
     }
@@ -90,66 +87,6 @@ export default function Settings() {
     }
     const ok = await addCategory(name);
     if (ok) setNewCategory('');
-  };
-
-  const handleResetData = () => {
-    if (!confirmReset) return;
-    dispatch({ type: 'RESET_DATA', payload: confirmReset });
-    showToast(confirmReset === 'demo' ? 'Data dikembalikan ke contoh' : 'Semua produk & transaksi dihapus');
-    setConfirmReset(null);
-  };
-
-  // Unduh seluruh data (produk, transaksi, struk, kategori, target, pengaturan)
-  // sebagai berkas JSON untuk dijadikan cadangan.
-  const handleExportData = () => {
-    const backup = {
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      products: state.products,
-      transactions: state.transactions,
-      receipts: state.receipts,
-      categories: state.categories,
-      dailyTarget: state.dailyTarget,
-      storeSettings: state.storeSettings,
-    };
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `laku-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    showToast('Data berhasil dicadangkan');
-  };
-
-  // Pulihkan data dari berkas cadangan JSON.
-  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // reset agar file yang sama bisa dipilih lagi
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(String(reader.result));
-        dispatch({
-          type: 'IMPORT_DATA',
-          payload: {
-            products: data.products,
-            transactions: data.transactions,
-            receipts: data.receipts,
-            categories: data.categories,
-          },
-        });
-        if (data.storeSettings && typeof data.storeSettings === 'object') updateStoreSettings(data.storeSettings);
-        if (typeof data.dailyTarget === 'number') setDailyTarget(data.dailyTarget);
-        showToast('Data berhasil dipulihkan');
-      } catch {
-        showToast('Berkas cadangan tidak valid');
-      }
-    };
-    reader.readAsText(file);
   };
 
   const fieldClass = 'w-full h-12 px-4 bg-[#F8F9FC] rounded-xl text-sm font-bold text-[#1A1F3A] placeholder:text-[#9BA3BC] outline-none focus:ring-2 focus:ring-[#1A56DB]/30';
@@ -259,40 +196,6 @@ export default function Settings() {
           </div>
         </Section>
 
-        {/* Manajemen Data */}
-        <Section
-          icon={Database} title="Manajemen Data" subtitle="Cadangkan, pulihkan, atau reset"
-          open={openSection === 'data'} onToggle={() => toggle('data')}
-        >
-          <div className="grid grid-cols-2 gap-2.5">
-            <button
-              onClick={handleExportData}
-              className="h-11 rounded-xl bg-[#e8f1ff] text-[#1A56DB] font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform hover:bg-[#d4e4fb]"
-            >
-              <Download size={16} strokeWidth={2.2} /> Cadangkan
-            </button>
-            <button
-              onClick={() => importRef.current?.click()}
-              className="h-11 rounded-xl bg-[#F8F9FC] text-[#3D4566] font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform hover:bg-[#EEF0F6]"
-            >
-              <Upload size={16} strokeWidth={2.2} /> Pulihkan
-            </button>
-          </div>
-          <input ref={importRef} type="file" accept="application/json,.json" className="hidden" onChange={handleImportData} />
-          <button
-            onClick={() => setConfirmReset('demo')}
-            className="w-full h-11 rounded-xl bg-[#F8F9FC] text-[#3D4566] font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform hover:bg-[#EEF0F6]"
-          >
-            <RotateCcw size={16} strokeWidth={2.2} /> Kembalikan Data Contoh
-          </button>
-          <button
-            onClick={() => setConfirmReset('empty')}
-            className="w-full h-11 rounded-xl bg-[#fef2f2] text-[#ef4444] font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform hover:bg-[#fee2e2]"
-          >
-            <Trash2 size={16} strokeWidth={2.2} /> Hapus Semua Produk & Transaksi
-          </button>
-        </Section>
-
         {/* Akun */}
         <Section
           icon={Info} title="Akun" subtitle={state.user?.email || 'Informasi pengguna'}
@@ -306,23 +209,19 @@ export default function Settings() {
             </div>
             <div className="min-w-0">
               <div className="text-sm font-bold text-[#1A1F3A] truncate">{state.user?.name || 'Pengguna'}</div>
-              <div className="text-xs font-medium text-[#9BA3BC] truncate">{state.user?.email || toLocalPhone(state.user?.phone)}</div>
+              <div className="text-xs font-medium text-[#9BA3BC] truncate">{state.user?.email}</div>
             </div>
           </div>
-          <Field label="Email" icon={Mail} hint={state.user?.email ? undefined : 'Belum ada email — tambahkan agar bisa login pakai email'}>
+          <Field label="Email" icon={Mail} hint="Email untuk login ke akun">
             <input type="email" value={accEmail} onChange={e => setAccEmail(e.target.value)}
               placeholder="email@domain.com" className={fieldClass} />
-          </Field>
-          <Field label="Nomor HP" icon={Phone} hint="Dipakai juga sebagai nomor toko di struk">
-            <input type="tel" inputMode="numeric" value={accPhone} onChange={e => setAccPhone(e.target.value)}
-              placeholder="0812-3456-7890" className={fieldClass} />
           </Field>
           <button
             onClick={handleSaveContact}
             disabled={savingContact}
             className="w-full h-11 rounded-xl bg-[#e8f1ff] text-[#1A56DB] font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform hover:bg-[#d4e4fb] disabled:opacity-60"
           >
-            {savingContact ? 'Menyimpan...' : 'Simpan Email & Nomor'}
+            {savingContact ? 'Menyimpan...' : 'Simpan Email'}
           </button>
         </Section>
 
@@ -343,42 +242,8 @@ export default function Settings() {
           <LogOut size={16} strokeWidth={2} /> Keluar dari Akun
         </button>
 
-        <p className="text-center text-[11px] font-semibold text-[#DDE1EF] pt-1 pb-2">LAKU · Warung Digital · v1.0</p>
+        <p className="text-center text-[11px] font-semibold text-[#DDE1EF] pt-1 pb-2">Laku · Warung Digital · v1.5</p>
       </div>
-
-      {/* Konfirmasi reset data */}
-      <ModalSheet
-        open={confirmReset !== null}
-        onClose={() => setConfirmReset(null)}
-        title={confirmReset === 'demo' ? 'Kembalikan Data Contoh?' : 'Hapus Semua Data?'}
-      >
-        <div className="flex flex-col items-center text-center gap-3">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${confirmReset === 'demo' ? 'bg-[#E8F1FF]' : 'bg-[#fee2e2]'}`}>
-            {confirmReset === 'demo'
-              ? <RotateCcw size={24} className="text-[#1A56DB]" strokeWidth={2} />
-              : <AlertTriangle size={24} className="text-[#ef4444]" strokeWidth={2} />}
-          </div>
-          <p className="text-sm font-semibold text-[#3D4566]">
-            {confirmReset === 'demo'
-              ? 'Produk & transaksi akan diganti dengan data contoh bawaan. Data kamu saat ini akan hilang.'
-              : 'Semua produk, transaksi, dan struk akan dihapus permanen. Pengaturan toko tetap tersimpan.'}
-          </p>
-          <div className="flex gap-2.5 w-full mt-1">
-            <button
-              onClick={() => setConfirmReset(null)}
-              className="flex-1 h-12 rounded-xl bg-[#F8F9FC] text-[#3D4566] font-bold text-sm active:scale-[0.98] transition-transform"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleResetData}
-              className={`flex-1 h-12 rounded-xl text-white font-bold text-sm active:scale-[0.98] transition-transform ${confirmReset === 'demo' ? 'bg-[#1A56DB]' : 'bg-[#ef4444]'}`}
-            >
-              {confirmReset === 'demo' ? 'Kembalikan' : 'Hapus'}
-            </button>
-          </div>
-        </div>
-      </ModalSheet>
     </div>
   );
 }

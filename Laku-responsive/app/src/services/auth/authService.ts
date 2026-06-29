@@ -4,22 +4,6 @@
 import { apiClient } from '@/services/api/client';
 import { ENDPOINTS } from '@/services/api/endpoints';
 
-// ─── Helpers deteksi & normalisasi nomor HP ─────────────────────────────────
-
-/** Cek apakah input adalah nomor telepon (mulai dengan 0, +62, atau 62). */
-export function isPhoneNumber(input: string): boolean {
-  const cleaned = input.replace(/[\s\-()]/g, '');
-  return /^(\+62|62|0)\d{8,13}$/.test(cleaned);
-}
-
-/** Normalisasi nomor HP ke format 62xxx (tanpa +). */
-function normalizePhone(phone: string): string {
-  let cleaned = phone.replace(/[\s\-()]/g, '');
-  if (cleaned.startsWith('+62')) cleaned = '62' + cleaned.slice(3);
-  else if (cleaned.startsWith('0')) cleaned = '62' + cleaned.slice(1);
-  return cleaned;
-}
-
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 export interface AuthResponse {
@@ -48,23 +32,17 @@ export async function apiCompleteOnboarding(): Promise<void> {
   await apiClient<unknown>(ENDPOINTS.onboarding, { method: 'PATCH' });
 }
 
-// Perbarui email/nomor HP akun (dipanggil dari Pengaturan → Akun) lewat
-// PATCH /auth/profile. Validasi keunikan (EMAIL_TAKEN/PHONE_TAKEN) dilakukan backend.
-export async function apiUpdateContact(
-  _current: { email?: string; phone?: string },
-  next: { email?: string; phone?: string },
-): Promise<{ email: string; phone: string }> {
-  const nextEmail = (next.email ?? '').trim().toLowerCase();
-  const nextPhone = next.phone ? normalizePhone(next.phone) : '';
-
+// Perbarui email akun (dipanggil dari Pengaturan → Akun) lewat PATCH /auth/profile.
+// Validasi keunikan (EMAIL_TAKEN) dilakukan backend.
+export async function apiUpdateContact(email: string): Promise<{ email: string }> {
+  const nextEmail = email.trim().toLowerCase();
   if (nextEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) throw new Error('Format email tidak valid');
-  if (nextPhone && !/^62\d{8,13}$/.test(nextPhone)) throw new Error('Format nomor HP tidak valid (mis. 0812xxxxxxx)');
 
-  const res = await apiClient<{ user: { email: string; phone?: string } }>(ENDPOINTS.profile, {
+  const res = await apiClient<{ user: { email: string } }>(ENDPOINTS.profile, {
     method: 'PATCH',
-    body: JSON.stringify({ email: nextEmail || undefined, phone: nextPhone || null }),
+    body: JSON.stringify({ email: nextEmail || undefined }),
   });
-  return { email: res.user.email, phone: res.user.phone ?? '' };
+  return { email: res.user.email };
 }
 
 // ─── Token helpers ────────────────────────────────────────────────────────────

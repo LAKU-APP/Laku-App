@@ -1,19 +1,33 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
 import { Search, ShoppingCart, Trash2, Package, Printer, Receipt, History } from 'lucide-react';
 import { useIsMobile } from '@/hooks/useMobile';
 import ModalSheet from '@/components/modals/ModalSheet';
 import Cart from './Cart';
 import Checkout, { type PaymentMethod } from './Checkout';
+import SuccessCheck from '@/components/feedback/SuccessCheck';
+import Confetti from '@/components/feedback/Confetti';
 import type { ReceiptSnapshot, CartItem } from '@/types';
-import { formatRupiah } from '@/utils/currency';
+import { formatRupiah, calcGrossProfit } from '@/utils/currency';
 import { successFeedback } from '@/utils/feedback';
+import { makeConfettiPieces, type ConfettiPiece } from '@/utils/confetti';
+import { wasTargetCelebratedToday, markTargetCelebratedToday } from '@/utils/dailyLimits';
 
 const paymentLabel: Record<PaymentMethod, string> = {
   cash: 'Tunai',
   transfer: 'Transfer',
   qris: 'QRIS',
 };
+
+// Goyangan ikon keranjang (Web Animations API) saat item ditambahkan.
+const WIGGLE_FRAMES: Keyframe[] = [
+  { transform: 'rotate(0deg)' },
+  { transform: 'rotate(-14deg)' },
+  { transform: 'rotate(11deg)' },
+  { transform: 'rotate(-8deg)' },
+  { transform: 'rotate(5deg)' },
+  { transform: 'rotate(0deg)' },
+];
 
 function escapeHtml(value: string) {
   return value
@@ -46,6 +60,22 @@ export default function POS() {
 
   const cartCount = state.cart.reduce((sum, item) => sum + item.qty, 0);
   const grossTotal = state.cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+
+  // Ikon keranjang bergoyang tiap kali ada item baru ditambahkan.
+  // Web Animations API via ref (side-effect, bukan setState) — hemat & robust.
+  const cartIconRef = useRef<SVGSVGElement>(null);
+  const prevCartCount = useRef(cartCount);
+  useEffect(() => {
+    if (cartCount > prevCartCount.current) {
+      cartIconRef.current?.animate(WIGGLE_FRAMES, { duration: 600, easing: 'ease-in-out' });
+    }
+    prevCartCount.current = cartCount;
+  }, [cartCount]);
+
+  // Overlay centang sukses (SVG draw) sesaat setelah transaksi selesai.
+  const [showSuccess, setShowSuccess] = useState(false);
+  // Konfeti yang meledak langsung di kasir saat target laba tercapai.
+  const [posConfetti, setPosConfetti] = useState<ConfettiPiece[] | null>(null);
   const discount = Math.min(Math.max(parseInt(discountInput || '0', 10) || 0, 0), grossTotal);
   const netTotal = grossTotal - discount;
   const cashPaid = parseInt(cashPaidInput || '0', 10) || 0;
@@ -104,11 +134,34 @@ export default function POS() {
 
     if (!receipt) return; // gagal — pesan error sudah ditampilkan via toast
 
+    // Transaksi, struk, stok, & pengosongan keranjang sudah ditangani oleh
+    // checkout() di context (backend yang otoritatif). Di sini tinggal UX.
     setLastReceipt(receipt);
     setDiscountInput('');
     setCashPaidInput('');
     showToast(`Transaksi berhasil! Total: ${formatRupiah(receipt.total)}`);
     successFeedback(); // bunyi + getaran singkat sebagai konfirmasi
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 1500);
+
+    // Konfeti meledak DI KASIR saat laba hari ini menembus target (sekali/hari)
+    // — jadi tidak perlu buka Dashboard dulu untuk merayakannya. `state` di sini
+    // adalah snapshot sebelum sale ini tercatat, jadi profitBefore + laba sale ini
+    // = total laba hari ini setelah transaksi.
+    const todayStr = new Date().toISOString().split('T')[0];
+    const profitBefore = calcGrossProfit(
+      state.transactions.filter(t => t.createdAt.startsWith(todayStr)),
+      state.products,
+    );
+    const saleProfit = receipt.total - receipt.items.reduce((sum, item) => {
+      const product = state.products.find(p => p.id === item.productId);
+      return sum + (product?.costPrice ?? 0) * item.qty;
+    }, 0);
+    if (state.dailyTarget > 0 && profitBefore + saleProfit >= state.dailyTarget && !wasTargetCelebratedToday()) {
+      markTargetCelebratedToday();
+      setPosConfetti(makeConfettiPieces(46));
+      setTimeout(() => setPosConfetti(null), 3200);
+    }
   };
 
   const printReceipt = (receipt: ReceiptSnapshot) => {
@@ -261,7 +314,7 @@ export default function POS() {
       {/* Cart Header */}
       <div className="flex justify-between items-center mb-2.5">
         <div className="flex items-center gap-2">
-          <ShoppingCart size={15} className="text-[#1A56DB]" />
+          <ShoppingCart ref={cartIconRef} size={15} className="text-[#1A56DB]" style={{ transformOrigin: '50% 50%' }} />
           <span className="font-bold text-[#1A1F3A]" style={{ fontSize: 'clamp(12px, 3.5vw, 14px)' }}>Keranjang</span>
           {cartCount > 0 && (
             <span className="text-[10px] font-bold text-white bg-[#1A56DB] px-1.5 py-0.5 rounded-full">{cartCount}</span>
@@ -369,6 +422,19 @@ export default function POS() {
           </div>
         )}
       </ModalSheet>
+
+      {/* Konfeti perayaan target di kasir */}
+      {posConfetti && <Confetti pieces={posConfetti} />}
+
+      {/* Overlay sukses — centang tergambar sesaat setelah transaksi selesai */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-[450] flex items-center justify-center pointer-events-none">
+          <div className="flex flex-col items-center gap-3 bg-white/95 backdrop-blur-sm rounded-3xl px-8 py-7 card-shadow animate-pop-in">
+            <SuccessCheck size={88} />
+            <span className="text-sm font-extrabold text-[#1A1F3A]">Transaksi Berhasil</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 
